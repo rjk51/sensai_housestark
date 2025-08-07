@@ -17,6 +17,8 @@ interface HeaderProps {
     activeCohort?: Cohort | null;
     onCohortSelect?: (cohort: Cohort) => void;
     showTryDemoButton?: boolean;
+    highlightTryDemo?: boolean;
+    highlightOpenSchool?: boolean;
 }
 
 export function Header({
@@ -24,7 +26,9 @@ export function Header({
     cohorts = [],
     activeCohort = null,
     onCohortSelect,
-    showTryDemoButton = false
+    showTryDemoButton = false,
+    highlightTryDemo = false,
+    highlightOpenSchool = false
 }: HeaderProps) {
     const router = useRouter();
     const { data: session } = useSession();
@@ -235,7 +239,11 @@ export function Header({
                         {showTryDemoButton && (
                             <button
                                 onClick={handleTryDemoClick}
-                                className="hidden md:block px-6 py-3 bg-white/20 text-white text-sm font-medium rounded-full hover:bg-white/30 cursor-pointer"
+                                className={`hidden md:block px-6 py-3 bg-white/20 text-white text-sm font-medium rounded-full hover:bg-white/30 cursor-pointer transition-all duration-300 ${
+                                    highlightTryDemo 
+                                        ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-200 text-black border-purple-400' 
+                                        : ''
+                                }`}
                             >
                                 Try a demo
                             </button>
@@ -243,7 +251,11 @@ export function Header({
                         {showCreateCourseButton && (
                             <button
                                 onClick={handleButtonClick}
-                                className="hidden md:block px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none focus:ring-0 focus:border-0 cursor-pointer"
+                                className={`hidden md:block px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-all duration-300 focus:outline-none focus:ring-0 focus:border-0 cursor-pointer ${
+                                    highlightOpenSchool 
+                                        ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-200 border-purple-400' 
+                                        : ''
+                                }`}
                             >
                                 {getButtonText()}
                             </button>
@@ -334,12 +346,20 @@ export function Header({
                                 {/* Try a demo Button - only shown if not already a learner */}
                                 {showTryDemoButton && (
                                     <div className="flex items-center gap-3">
-                                        <span className="bg-black text-white py-2 px-4 rounded-full text-sm shadow-md">
+                                        <span className={`bg-black text-white py-2 px-4 rounded-full text-sm shadow-md transition-all duration-300 ${
+                                            highlightTryDemo 
+                                                ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-200 text-black border-purple-400' 
+                                                : ''
+                                        }`}>
                                             Try a demo
                                         </span>
                                         <button
                                             onClick={handleTryDemoClick}
-                                            className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-md cursor-pointer"
+                                            className={`w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-md cursor-pointer transition-all duration-300 ${
+                                                highlightTryDemo 
+                                                    ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-200 border-purple-400' 
+                                                    : ''
+                                            }`}
                                             aria-label="Try as a learner"
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
@@ -361,12 +381,20 @@ export function Header({
                                 {/* Go To School Button - only shown if hasOwnedSchool is true */}
                                 {hasOwnedSchool ? (
                                     <div className="flex items-center gap-3">
-                                        <span className="bg-black text-white py-2 px-4 rounded-full text-sm shadow-md">
+                                        <span className={`bg-black text-white py-2 px-4 rounded-full text-sm shadow-md transition-all duration-300 ${
+                                            highlightOpenSchool 
+                                                ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-200 text-black border-purple-400' 
+                                                : ''
+                                        }`}>
                                             Open school
                                         </span>
                                         <button
                                             onClick={handleGoToSchoolClick}
-                                            className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-md cursor-pointer"
+                                            className={`w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-md cursor-pointer transition-all duration-300 ${
+                                                highlightOpenSchool 
+                                                    ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-200 border-purple-400' 
+                                                    : ''
+                                            }`}
                                             aria-label="Go to school"
                                         >
                                             <School className="h-6 w-6" />

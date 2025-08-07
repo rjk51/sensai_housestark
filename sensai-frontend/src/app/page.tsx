@@ -27,6 +27,17 @@ export default function Home() {
   const [isTTSActive, setIsTTSActive] = useState(false);
   const [logoAtButtons, setLogoAtButtons] = useState(false);
   const [isClassifying, setIsClassifying] = useState(false);
+  
+  // Highlighting states for voice-guided interactions
+  const [highlightCreateCourse, setHighlightCreateCourse] = useState(false);
+  const [highlightSearchBar, setHighlightSearchBar] = useState(false);
+  const [highlightTeaching, setHighlightTeaching] = useState(false);
+  const [highlightLearning, setHighlightLearning] = useState(false);
+  const [highlightCourseCards, setHighlightCourseCards] = useState(false);
+  const [highlightTryDemo, setHighlightTryDemo] = useState(false);
+  const [highlightOpenSchool, setHighlightOpenSchool] = useState(false);
+  const [highlightYourCourses, setHighlightYourCourses] = useState(false);
+  const [highlightOtherCourses, setHighlightOtherCourses] = useState(false);
 
   // Memoize derived data to avoid recalculations
   const {
@@ -121,14 +132,198 @@ export default function Home() {
     setLogoAtButtons(true);
     setIsTTSActive(true);
     
+    // Reset all highlights
+    setHighlightCreateCourse(false);
+    setHighlightSearchBar(false);
+    setHighlightTeaching(false);
+    setHighlightLearning(false);
+    setHighlightCourseCards(false);
+    setHighlightTryDemo(false);
+    setHighlightOpenSchool(false);
+    setHighlightYourCourses(false);
+    setHighlightOtherCourses(false);
+    
     // TTS message for home page
     const message = promptData.page3;
     if ('speechSynthesis' in window) {
       const utter = new window.SpeechSynthesisUtterance(message);
       utter.lang = 'en-US';
       
+      // Set up speech boundary detection for highlighting
+      let currentCharIndex = 0;
+      let lastCreateCourseIndex = -1;
+      let lastSearchIndex = -1;
+      let lastTeachingIndex = -1;
+      let lastLearningIndex = -1;
+      let lastCourseIndex = -1;
+      let lastTryDemoIndex = -1;
+      let lastOpenSchoolIndex = -1;
+      let lastYourCoursesIndex = -1;
+      let lastOtherCoursesIndex = -1;
+      
+      // Highlight logic based on spoken words
+      utter.onboundary = (event) => {
+        if (!event.charIndex) return;
+        currentCharIndex = event.charIndex;
+        const spoken = message.substring(0, event.charIndex + 1).toLowerCase();
+        
+        // Find the latest occurrence of each phrase
+        const createCourseIndex = Math.max(
+          spoken.lastIndexOf("create course"),
+          spoken.lastIndexOf("creating course"),
+          spoken.lastIndexOf("new course")
+        );
+        
+        const searchIndex = Math.max(
+          spoken.lastIndexOf("search"),
+          spoken.lastIndexOf("find course"),
+          spoken.lastIndexOf("look for")
+        );
+        
+        const teachingIndex = Math.max(
+          spoken.lastIndexOf("teaching"),
+          spoken.lastIndexOf("created by you"),
+          spoken.lastIndexOf("your courses you've created")
+        );
+        
+        const learningIndex = Math.max(
+          spoken.lastIndexOf("learning"),
+          spoken.lastIndexOf("enrolled"),
+          spoken.lastIndexOf("taking")
+        );
+        
+        const courseIndex = Math.max(
+          spoken.lastIndexOf("course card"),
+          spoken.lastIndexOf("available courses")
+        );
+        
+        const tryDemoIndex = Math.max(
+          spoken.lastIndexOf("try demo"),
+          spoken.lastIndexOf("demo"),
+          spoken.lastIndexOf("try the demo")
+        );
+        
+        const openSchoolIndex = Math.max(
+          spoken.lastIndexOf("open school"),
+          spoken.lastIndexOf("school"),
+          spoken.lastIndexOf("create school")
+        );
+        
+        const yourCoursesIndex = Math.max(
+          spoken.lastIndexOf("your courses"),
+          spoken.lastIndexOf("your course")
+        );
+        
+        const otherCoursesIndex = Math.max(
+          spoken.lastIndexOf("other courses"),
+          spoken.lastIndexOf("discover courses"),
+          spoken.lastIndexOf("browse courses")
+        );
+        
+        // Update indices if we found new occurrences
+        if (createCourseIndex > lastCreateCourseIndex) {
+          lastCreateCourseIndex = createCourseIndex;
+        }
+        if (searchIndex > lastSearchIndex) {
+          lastSearchIndex = searchIndex;
+        }
+        if (teachingIndex > lastTeachingIndex) {
+          lastTeachingIndex = teachingIndex;
+        }
+        if (learningIndex > lastLearningIndex) {
+          lastLearningIndex = learningIndex;
+        }
+        if (courseIndex > lastCourseIndex) {
+          lastCourseIndex = courseIndex;
+        }
+        if (tryDemoIndex > lastTryDemoIndex) {
+          lastTryDemoIndex = tryDemoIndex;
+        }
+        if (openSchoolIndex > lastOpenSchoolIndex) {
+          lastOpenSchoolIndex = openSchoolIndex;
+        }
+        if (yourCoursesIndex > lastYourCoursesIndex) {
+          lastYourCoursesIndex = yourCoursesIndex;
+        }
+        if (otherCoursesIndex > lastOtherCoursesIndex) {
+          lastOtherCoursesIndex = otherCoursesIndex;
+        }
+        
+        // Reset all highlights first
+        setHighlightCreateCourse(false);
+        setHighlightSearchBar(false);
+        setHighlightTeaching(false);
+        setHighlightLearning(false);
+        setHighlightCourseCards(false);
+        setHighlightTryDemo(false);
+        setHighlightOpenSchool(false);
+        setHighlightYourCourses(false);
+        setHighlightOtherCourses(false);
+        
+        // Determine which element to highlight based on the most recent mention
+        const allIndices = [
+          { index: lastCreateCourseIndex, type: 'create' },
+          { index: lastSearchIndex, type: 'search' },
+          { index: lastTeachingIndex, type: 'teaching' },
+          { index: lastLearningIndex, type: 'learning' },
+          { index: lastCourseIndex, type: 'courses' },
+          { index: lastTryDemoIndex, type: 'tryDemo' },
+          { index: lastOpenSchoolIndex, type: 'openSchool' },
+          { index: lastYourCoursesIndex, type: 'yourCourses' },
+          { index: lastOtherCoursesIndex, type: 'otherCourses' }
+        ].filter(item => item.index >= 0);
+        
+        if (allIndices.length > 0) {
+          const mostRecent = allIndices.reduce((prev, current) => 
+            current.index > prev.index ? current : prev
+          );
+          
+          switch (mostRecent.type) {
+            case 'create':
+              setHighlightCreateCourse(true);
+              break;
+            case 'search':
+              setHighlightSearchBar(true);
+              break;
+            case 'teaching':
+              setHighlightTeaching(true);
+              break;
+            case 'learning':
+              setHighlightLearning(true);
+              break;
+            case 'courses':
+              setHighlightCourseCards(true);
+              break;
+            case 'tryDemo':
+              setHighlightTryDemo(true);
+              break;
+            case 'openSchool':
+              setHighlightOpenSchool(true);
+              break;
+            case 'yourCourses':
+              setHighlightYourCourses(true);
+              break;
+            case 'otherCourses':
+              setHighlightOtherCourses(true);
+              break;
+          }
+        }
+      };
+      
       utter.onend = () => {
         setIsTTSActive(false);
+        
+        // Reset all highlights
+        setHighlightCreateCourse(false);
+        setHighlightSearchBar(false);
+        setHighlightTeaching(false);
+        setHighlightLearning(false);
+        setHighlightCourseCards(false);
+        setHighlightTryDemo(false);
+        setHighlightOpenSchool(false);
+        setHighlightYourCourses(false);
+        setHighlightOtherCourses(false);
+        
         // After speaking, start voice recognition
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
           // @ts-ignore
@@ -392,6 +587,8 @@ export default function Home() {
         <Header
           showCreateCourseButton={hasAnyCourses || (hasSchool ?? false)}
           showTryDemoButton={!hasLearningCourses}
+          highlightTryDemo={highlightTryDemo}
+          highlightOpenSchool={highlightOpenSchool}
         />
 
         {/* Main content */}
@@ -411,10 +608,15 @@ export default function Home() {
                 <div className="flex justify-center mb-8">
                   <div className="inline-flex bg-[#222222] rounded-lg p-1 w-full sm:w-auto">
                     <button
-                      className={`flex items-center justify-center px-1 xxs:px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm xxs:font-medium cursor-pointer flex-1 sm:flex-initial ${activeTab === 'teaching'
-                        ? 'bg-[#333333] text-white'
-                        : 'text-gray-400 hover:text-white'
-                        }`}
+                      className={`flex items-center justify-center px-1 xxs:px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm xxs:font-medium cursor-pointer flex-1 sm:flex-initial transition-all duration-300 ${
+                        activeTab === 'teaching'
+                          ? 'bg-[#333333] text-white'
+                          : 'text-gray-400 hover:text-white'
+                      } ${
+                        highlightTeaching 
+                          ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-50 text-black border-purple-400' 
+                          : ''
+                      }`}
                       onClick={() => setActiveTab('teaching')}
                     >
                       <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -423,10 +625,15 @@ export default function Home() {
                       Created by you
                     </button>
                     <button
-                      className={`flex items-center justify-center px-1 xxs:px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm xxs:font-medium cursor-pointer flex-1 sm:flex-initial ${activeTab === 'learning'
-                        ? 'bg-[#333333] text-white'
-                        : 'text-gray-400 hover:text-white'
-                        }`}
+                      className={`flex items-center justify-center px-1 xxs:px-2 sm:px-4 py-2 rounded-md text-xs sm:text-sm xxs:font-medium cursor-pointer flex-1 sm:flex-initial transition-all duration-300 ${
+                        activeTab === 'learning'
+                          ? 'bg-[#333333] text-white'
+                          : 'text-gray-400 hover:text-white'
+                      } ${
+                        highlightLearning 
+                          ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-50 text-black border-purple-400' 
+                          : ''
+                      }`}
                       onClick={() => setActiveTab('learning')}
                     >
                       <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -448,7 +655,11 @@ export default function Home() {
                     <div className="flex justify-center gap-4">
                       <button
                         onClick={handleCreateCourseButtonClick}
-                        className="px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity inline-block cursor-pointer"
+                        className={`px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-all duration-300 inline-block cursor-pointer ${
+                          highlightCreateCourse 
+                            ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-yellow-200 border-purple-400' 
+                            : ''
+                        }`}
                       >
                         Create course
                       </button>
@@ -456,7 +667,11 @@ export default function Home() {
                   </div>
                 ) : !(hasLearningCourses && hasTeachingCourses) && (
                   // User has some courses, show appropriate heading
-                  <h2 className="text-2xl font-medium mb-6 text-center">
+                  <h2 className={`text-2xl font-medium mb-6 text-center transition-all duration-300 ${
+                    highlightYourCourses 
+                      ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-purple-50/10 rounded-lg p-4' 
+                      : ''
+                  }`}>
                     Your courses
                   </h2>
                 )}
@@ -464,7 +679,11 @@ export default function Home() {
 
               {/* Course grid */}
               {hasAnyCourses && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mb-12">
+                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mb-12 transition-all duration-300 ${
+                  highlightYourCourses 
+                    ? 'ring-4 ring-purple-400 shadow-2xl scale-105 rounded-lg p-4 bg-purple-50/10' 
+                    : ''
+                }`}>
                   {(activeTab === 'teaching' ? teachingCourses : learningCourses).map((course) => (
                     <CourseCard
                       key={course.id}
@@ -480,12 +699,20 @@ export default function Home() {
               {/* Other Courses Section - Always show */}
               <div className="w-full max-w-6xl">
                 <div className="mb-6">
-                  <h2 className="text-2xl font-medium mb-2 text-center">Other courses</h2>
+                  <h2 className={`text-2xl font-medium mb-2 text-center transition-all duration-300 ${
+                    highlightOtherCourses 
+                      ? 'ring-4 ring-purple-400 shadow-2xl scale-105 bg-purple-50/10 rounded-lg p-4' 
+                      : ''
+                  }`}>Other courses</h2>
                   <p className="text-gray-400 text-center mb-4">Discover more courses from your school</p>
                   
                   {/* Search Bar */}
                   <div className="flex justify-center mb-6">
-                    <div className="relative w-full max-w-md">
+                    <div className={`relative w-full max-w-md transition-all duration-300 ${
+                      highlightSearchBar 
+                        ? 'ring-4 ring-purple-400 shadow-2xl scale-105 rounded-full' 
+                        : ''
+                    }`}>
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -497,7 +724,11 @@ export default function Home() {
                         value={searchQuery}
                         onChange={handleSearchChange}
                         onKeyPress={handleSearchKeyPress}
-                        className="w-full pl-10 pr-4 py-3 bg-[#222222] border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className={`w-full pl-10 pr-4 py-3 bg-[#222222] border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 ${
+                          highlightSearchBar 
+                            ? 'bg-yellow-50 text-black placeholder-gray-600 border-purple-400' 
+                            : ''
+                        }`}
                         disabled={isClassifying}
                       />
                       {isClassifying && (
@@ -509,7 +740,11 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-all duration-300 ${
+                  highlightOtherCourses 
+                    ? 'ring-4 ring-purple-400 shadow-2xl scale-105 rounded-lg p-4 bg-purple-50/10' 
+                    : ''
+                }`}>
                   {filteredPublicCourses.length > 0 ? (
                     filteredPublicCourses.map((course) => (
                       <CourseCard
