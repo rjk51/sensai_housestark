@@ -22,6 +22,7 @@ from api.routes import (
     ai,
     scorecard,
     speech,
+    classify,
 )
 from api.routes.ai import (
     resume_pending_task_generation_jobs,
@@ -118,6 +119,7 @@ app.include_router(scorecard.router, prefix="/scorecards", tags=["scorecards"])
 app.include_router(code.router, prefix="/code", tags=["code"])
 app.include_router(hva.router, prefix="/hva", tags=["hva"])
 app.include_router(speech.router, prefix="/speech", tags=["speech"])
+app.include_router(classify.router, prefix="/classify", tags=["classify"])
 app.include_router(websocket_router, prefix="/ws", tags=["websockets"])
 
 
