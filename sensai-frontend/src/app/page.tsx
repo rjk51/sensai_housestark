@@ -26,6 +26,7 @@ export default function Home() {
   const [speechError, setSpeechError] = useState("");
   const [isTTSActive, setIsTTSActive] = useState(false);
   const [logoAtButtons, setLogoAtButtons] = useState(false);
+  const [isClassifying, setIsClassifying] = useState(false);
 
   // Memoize derived data to avoid recalculations
   const {
@@ -225,6 +226,62 @@ export default function Home() {
     }
   };
 
+  // Function to classify text and redirect
+  const classifyAndRedirect = async (text: string) => {
+    if (!text.trim()) return;
+    
+    setIsClassifying(true);
+    try {
+      const response = await fetch('http://127.0.0.1:8000/classify/classify_text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: text
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const category = result.category || result; // Handle different response formats
+        
+        // Map categories to routes
+        const categoryRoutes: { [key: string]: string } = {
+          'frontend': '/explore/frontend',
+          'backend': '/explore/backend',
+          'ML': '/explore/ML',
+          'GenAI': '/explore/ML', // Default GenAI to ML for now
+          'Embedded system': '/explore/backend' // Default Embedded to backend for now
+        };
+
+        const route = categoryRoutes[category] || '/explore/ML'; // Default to ML
+        router.push(route);
+      } else {
+        console.error('Classification failed:', response.status);
+        // Default redirect to ML on error
+        router.push('/explore/ML');
+      }
+    } catch (error) {
+      console.error('Error classifying text:', error);
+      // Default redirect to ML on error
+      router.push('/explore/ML');
+    } finally {
+      setIsClassifying(false);
+    }
+  };
+
+  // Handle search input with classification
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      classifyAndRedirect(searchQuery);
+    }
+  };
+
   return (
     <>
       <style jsx global>{`
@@ -362,9 +419,16 @@ export default function Home() {
                         type="text"
                         placeholder="Search courses..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={handleSearchChange}
+                        onKeyPress={handleSearchKeyPress}
                         className="w-full pl-10 pr-4 py-3 bg-[#222222] border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        disabled={isClassifying}
                       />
+                      {isClassifying && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-500"></div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
