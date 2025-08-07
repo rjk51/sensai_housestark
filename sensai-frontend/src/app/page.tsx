@@ -8,6 +8,7 @@ import { useCourses, useSchools, usePublicCourses, Course as ApiCourse } from "@
 import CourseCard from "@/components/CourseCard";
 import CreateCourseDialog from "@/components/CreateCourseDialog";
 import Image from "next/image";
+import promptData from "./promtp.json";
 
 export default function Home() {
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function Home() {
     setIsTTSActive(true);
     
     // TTS message for home page
-    const message = "Hey, I'm Senpai! I can help you navigate your courses, create new content, or discover other available courses. What would you like to do?";
+    const message = promptData.page3;
     if ('speechSynthesis' in window) {
       const utter = new window.SpeechSynthesisUtterance(message);
       utter.lang = 'en-US';
