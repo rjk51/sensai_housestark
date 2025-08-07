@@ -19,8 +19,10 @@ export default function Home() {
   const {
     teachingCourses,
     learningCourses,
+    otherCourses,
     hasTeachingCourses,
     hasLearningCourses,
+    hasOtherCourses,
     hasAnyCourses,
     showSegmentedTabs
   } = useMemo(() => {
@@ -29,11 +31,72 @@ export default function Home() {
     const hasTeachingCourses = teachingCourses.length > 0;
     const hasLearningCourses = learningCourses.length > 0;
 
+    // Hardcoded other courses for demonstration
+    const otherCourses = [
+      {
+        id: 'other-1',
+        title: 'Introduction to Data Science',
+        role: 'public',
+        org: { id: 1, name: 'Data Institute', slug: 'data-institute' },
+        description: 'Learn the fundamentals of data science and analytics',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'other-2',
+        title: 'Web Development Bootcamp',
+        role: 'public',
+        org: { id: 2, name: 'Code Academy', slug: 'code-academy' },
+        description: 'Complete guide to modern web development',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'other-3',
+        title: 'Machine Learning Fundamentals',
+        role: 'public',
+        org: { id: 3, name: 'AI School', slug: 'ai-school' },
+        description: 'Understanding the basics of machine learning',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'other-4',
+        title: 'Digital Marketing Strategy',
+        role: 'public',
+        org: { id: 4, name: 'Marketing Hub', slug: 'marketing-hub' },
+        description: 'Learn effective digital marketing techniques',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'other-5',
+        title: 'UI/UX Design Principles',
+        role: 'public',
+        org: { id: 5, name: 'Design Studio', slug: 'design-studio' },
+        description: 'Master the art of user interface and experience design',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'other-6',
+        title: 'Project Management Essentials',
+        role: 'public',
+        org: { id: 6, name: 'Business School', slug: 'business-school' },
+        description: 'Essential skills for effective project management',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z'
+      }
+    ];
+    const hasOtherCourses = otherCourses.length > 0;
+
     return {
       teachingCourses,
       learningCourses,
+      otherCourses,
       hasTeachingCourses,
       hasLearningCourses,
+      hasOtherCourses,
       hasAnyCourses: hasTeachingCourses || hasLearningCourses,
       showSegmentedTabs: hasTeachingCourses && hasLearningCourses
     };
@@ -123,7 +186,7 @@ export default function Home() {
 
           {/* Content when loaded */}
           {!isLoading && (
-            <>
+            <div className="flex flex-col items-center">
               {/* Segmented control for tabs */}
               {showSegmentedTabs && (
                 <div className="flex justify-center mb-8">
@@ -157,7 +220,7 @@ export default function Home() {
               )}
 
               {/* Display content based on courses availability */}
-              <div className="mb-8">
+              <div className="mb-8 w-full max-w-4xl">
                 {!hasTeachingCourses && !hasLearningCourses ? (
                   // No courses at all - show universal placeholder
                   <div className="text-center py-12">
@@ -174,7 +237,7 @@ export default function Home() {
                   </div>
                 ) : !(hasLearningCourses && hasTeachingCourses) && (
                   // User has some courses, show appropriate heading
-                  <h2 className="text-2xl font-medium">
+                  <h2 className="text-2xl font-medium mb-6 text-center">
                     Your courses
                   </h2>
                 )}
@@ -182,7 +245,7 @@ export default function Home() {
 
               {/* Course grid */}
               {hasAnyCourses && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mb-12">
                   {(activeTab === 'teaching' ? teachingCourses : learningCourses).map((course) => (
                     <CourseCard
                       key={course.id}
@@ -194,7 +257,27 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </>
+
+              {/* Other Courses Section - Always show */}
+              <div className="w-full max-w-6xl">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-medium mb-2 text-center">Other courses</h2>
+                  <p className="text-gray-400 text-center">Discover more courses from your school</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {otherCourses.map((course) => (
+                    <CourseCard
+                      key={course.id}
+                      course={{
+                        ...course,
+                        title: course.org?.slug ? `@${course.org.slug}/${course.title}` : course.title,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
         </main>
       </div>
