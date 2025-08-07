@@ -24,6 +24,17 @@ function LoginContent() {
         signIn("google", { callbackUrl });
     };
 
+    const handleVoxaLogin = () => {
+        // TODO: Implement Voxa authentication
+        // For now, we'll add a placeholder that could redirect to Voxa's auth endpoint
+        console.log("Voxa login clicked - implement Voxa OAuth flow");
+        
+        // Placeholder for future Voxa OAuth implementation
+        // This could be similar to: signIn("voxa", { callbackUrl });
+        // or a custom OAuth flow depending on Voxa's authentication method
+        alert("Voxa authentication coming soon!");
+    };
+
     // Show loading state while checking session
     if (status === "loading") {
         return (
@@ -72,7 +83,7 @@ function LoginContent() {
 
                     {/* Login card - spans 5 columns on desktop */}
                     <div className="md:col-span-5">
-                        <div className="mx-4 md:mx-0">
+                        <div className="mx-4 md:mx-0 space-y-4">
                             <button
                                 onClick={handleGoogleLogin}
                                 className="flex items-center justify-center w-full py-3 px-4 bg-white border border-gray-300 rounded-full text-black hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer mx-4"
@@ -98,6 +109,17 @@ function LoginContent() {
                                 Sign in with Google
                             </button>
 
+                            <button
+                                onClick={handleVoxaLogin}
+                                className="flex items-center justify-center w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 border border-transparent rounded-full text-white hover:from-blue-700 hover:to-purple-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer mx-4"
+                            >
+                                <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2L2 7v10c0 5.55 3.84 9.739 9 11 5.16-1.261 9-5.45 9-11V7l-10-5z"/>
+                                    <path d="M8 12l2 2 4-4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                                </svg>
+                                Sign in with Voxa
+                            </button>
+
                             <div className="px-4 md:px-8 py-4">
                                 <p className="text-xs text-gray-500">
                                     By continuing, you acknowledge that you understand and agree to the{" "}
@@ -113,6 +135,25 @@ function LoginContent() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* AI Assistant Logo - Bottom Right */}
+            <div className="fixed bottom-6 right-6 z-50">
+                <button 
+                    className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black"
+                    onClick={() => {
+                        // TODO: Implement AI assistant logic
+                        console.log("AI Assistant clicked");
+                    }}
+                >
+                    <Image
+                        src="/images/senpai-logo.gif"
+                        alt="AI Assistant"
+                        width={48}
+                        height={48}
+                        className="w-full h-full rounded-full object-cover"
+                    />
+                </button>
             </div>
         </div>
     );
