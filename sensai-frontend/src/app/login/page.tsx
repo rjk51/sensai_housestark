@@ -97,14 +97,30 @@ function LoginContent() {
                     recognition.lang = 'en-US';
                     recognition.interimResults = false;
                     recognition.maxAlternatives = 1;
-                    recognition.onresult = (event: any) => {
-                        const transcript = event.results[0][0].transcript;
-                        setTranscription(transcript);
-                        setSpeechError("");
-                        // Reset UI after recognition
+
+                    let silenceTimeout: NodeJS.Timeout | null = null;
+
+                    const resetUI = () => {
                         setIsAssistantEnlarged(false);
                         setLogoAtButtons(false);
                         setIsDebounced(false);
+                    };
+
+                    const stopRecognition = () => {
+                        recognition.stop();
+                        resetUI();
+                    };
+
+                    recognition.onresult = (event: any) => {
+                        const transcript = event.results[0][0].transcript;
+                        console.log('Speech recognition result:', transcript);
+                        setTranscription(transcript);
+                        setSpeechError("");
+                        // If user keeps speaking, reset the 5s timer
+                        if (silenceTimeout) clearTimeout(silenceTimeout);
+                        silenceTimeout = setTimeout(() => {
+                            stopRecognition();
+                        }, 5000);
                     };
                     recognition.onerror = (event: any) => {
                         console.error('Speech recognition error:', event.error);
@@ -115,10 +131,13 @@ function LoginContent() {
                         } else {
                             setSpeechError("Speech recognition error: " + event.error);
                         }
-                        // Reset UI on error
-                        setIsAssistantEnlarged(false);
-                        setLogoAtButtons(false);
-                        setIsDebounced(false);
+                        if (silenceTimeout) clearTimeout(silenceTimeout);
+                        resetUI();
+                    };
+                    recognition.onend = () => {
+                        // If recognition ended not by our timer, reset UI
+                        if (silenceTimeout) clearTimeout(silenceTimeout);
+                        resetUI();
                     };
                     recognition.start();
                 } else {
