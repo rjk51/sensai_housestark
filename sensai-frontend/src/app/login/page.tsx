@@ -4,7 +4,23 @@ import { signIn, useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
+
+// Custom styles for staggered burst animation
+const burstStyles = `
+  @keyframes burst-ping {
+    75%, 100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+  .animation-delay-150 {
+    animation-delay: 150ms;
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+`;
 
 // Create a separate component that uses useSearchParams
 function LoginContent() {
@@ -12,6 +28,14 @@ function LoginContent() {
     const { data: session, status } = useSession();
     const searchParams = useSearchParams();
     const callbackUrl = searchParams.get("callbackUrl") || "/";
+    const [isAssistantEnlarged, setIsAssistantEnlarged] = useState(false);
+    const [isDebounced, setIsDebounced] = useState(false);
+    const [transcription, setTranscription] = useState("");
+    const [speechError, setSpeechError] = useState("");
+    const [isTTSActive, setIsTTSActive] = useState(false);
+    const [logoAtButtons, setLogoAtButtons] = useState(false);
+    const [highlightGoogle, setHighlightGoogle] = useState(false);
+    const [highlightVoxa, setHighlightVoxa] = useState(false);
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -35,6 +59,84 @@ function LoginContent() {
         alert("Voxa authentication coming soon!");
     };
 
+    const handleAssistantClick = async () => {
+        if (isDebounced || isTTSActive) return;
+        setIsDebounced(true);
+        setIsAssistantEnlarged(true);
+        setLogoAtButtons(true);
+        setIsTTSActive(true);
+        setHighlightGoogle(false);
+        setHighlightVoxa(false);
+        // TTS message
+        const message = "Hey my name is Senpai - I will be your partner in our learning journey. First - let’s log you in Sensai, you can do Google auth or voxa vocal auth.";
+        if ('speechSynthesis' in window) {
+            const utter = new window.SpeechSynthesisUtterance(message);
+            utter.lang = 'en-US';
+            // Highlight logic based on spoken words
+            utter.onboundary = (event) => {
+                if (!event.charIndex) return;
+                const spoken = message.substring(0, event.charIndex + 1).toLowerCase();
+                if (spoken.includes("google auth")) {
+                    setHighlightGoogle(true);
+                    setHighlightVoxa(false);
+                } else if (spoken.includes("voxa vocal auth")) {
+                    setHighlightGoogle(false);
+                    setHighlightVoxa(true);
+                }
+            };
+            utter.onend = () => {
+                setHighlightGoogle(false);
+                setHighlightVoxa(false);
+                setIsTTSActive(false);
+                // After speaking, start voice recognition
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    // @ts-ignore
+                    const SpeechRecognition = (window).SpeechRecognition || (window).webkitSpeechRecognition;
+                    // @ts-ignore
+                    const recognition = new SpeechRecognition();
+                    recognition.lang = 'en-US';
+                    recognition.interimResults = false;
+                    recognition.maxAlternatives = 1;
+                    recognition.onresult = (event: any) => {
+                        const transcript = event.results[0][0].transcript;
+                        setTranscription(transcript);
+                        setSpeechError("");
+                        // Reset UI after recognition
+                        setIsAssistantEnlarged(false);
+                        setLogoAtButtons(false);
+                        setIsDebounced(false);
+                    };
+                    recognition.onerror = (event: any) => {
+                        console.error('Speech recognition error:', event.error);
+                        if (event.error === "network") {
+                            setSpeechError("Speech recognition failed due to a network error. Please check your internet connection and try again.");
+                        } else if (event.error === "not-allowed") {
+                            setSpeechError("Microphone access denied. Please allow microphone access and try again.");
+                        } else {
+                            setSpeechError("Speech recognition error: " + event.error);
+                        }
+                        // Reset UI on error
+                        setIsAssistantEnlarged(false);
+                        setLogoAtButtons(false);
+                        setIsDebounced(false);
+                    };
+                    recognition.start();
+                } else {
+                    setSpeechError('Speech recognition not supported in this browser.');
+                    setIsAssistantEnlarged(false);
+                    setLogoAtButtons(false);
+                    setIsDebounced(false);
+                }
+            };
+            window.speechSynthesis.speak(utter);
+        } else {
+            setSpeechError('Text-to-speech not supported in this browser.');
+            setIsAssistantEnlarged(false);
+            setLogoAtButtons(false);
+            setIsDebounced(false);
+        }
+    };
+
     // Show loading state while checking session
     if (status === "loading") {
         return (
@@ -45,8 +147,10 @@ function LoginContent() {
     }
 
     return (
-        <div className="min-h-screen bg-black bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black flex flex-col justify-center items-center px-4 py-12">
-            <div className="w-full max-w-5xl mx-auto relative">
+        <>
+            <style jsx>{burstStyles}</style>
+            <div className="min-h-screen bg-black bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black flex flex-col justify-center items-center px-4 py-12">
+                <div className={`w-full max-w-5xl mx-auto relative transition-all duration-500 ${isAssistantEnlarged ? 'blur-md' : ''}`}>
 
 
                 {/* Content */}
@@ -137,25 +241,58 @@ function LoginContent() {
                 </div>
             </div>
 
-            {/* AI Assistant Logo - Bottom Right */}
-            <div className="fixed bottom-6 right-6 z-50">
+            {/* AI Assistant Logo - Bottom Right / Center when enlarged */}
+            <div className={`fixed z-50 flex flex-col items-end transition-all duration-500 ${
+                isAssistantEnlarged 
+                    ? 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 items-center' 
+                    : 'bottom-6 right-6'
+            }`}>
+                {/* Chat Bubble Label with Burst Animation */}
+                {!isAssistantEnlarged && (
+                    <div className="mb-3 relative animate-in fade-in duration-300">
+                        <div className="bg-white text-gray-800 text-sm px-4 py-3 rounded-2xl shadow-lg whitespace-nowrap border border-gray-100">
+                            Talk to Senpai
+                        </div>
+                        {/* Chat bubble arrow pointing to the logo */}
+                        <div className="absolute -bottom-2 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-white"></div>
+                        <div className="absolute -bottom-1 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-100"></div>
+                    </div>
+                )}
+                
+                {/* Burst Animation Effect */}
+                {isAssistantEnlarged && (
+                    <div className="absolute inset-0 pointer-events-none">
+                        {/* Multiple burst circles */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-purple-400 rounded-full animate-ping opacity-75"></div>
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 border-2 border-blue-400 rounded-full animate-ping opacity-50 animation-delay-150"></div>
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-purple-300 rounded-full animate-ping opacity-25 animation-delay-300"></div>
+                    </div>
+                )}
+                
+                {/* Assistant Button - Much Larger when clicked and centered */}
                 <button 
-                    className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black"
-                    onClick={() => {
-                        // TODO: Implement AI assistant logic
-                        console.log("AI Assistant clicked");
-                    }}
+                    className={`bg-gradient-to-r from-purple-500 to-blue-500 rounded-full shadow-lg hover:shadow-xl transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black ${
+                        isAssistantEnlarged ? 'w-32 h-32 hover:scale-105 shadow-2xl ring-4 ring-purple-400' : 'w-16 h-16 hover:scale-110'
+                    }`}
+                    onClick={handleAssistantClick}
                 >
                     <Image
                         src="/images/senpai-logo.gif"
                         alt="AI Assistant"
-                        width={48}
-                        height={48}
+                        width={isAssistantEnlarged ? 128 : 64}
+                        height={isAssistantEnlarged ? 128 : 64}
                         className="w-full h-full rounded-full object-cover"
                     />
                 </button>
             </div>
+            {/* Show speech error if any */}
+            {speechError && (
+                <div className="fixed top-8 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-50 text-center">
+                    {speechError}
+                </div>
+            )}
         </div>
+        </>
     );
 }
 
@@ -170,4 +307,4 @@ export default function LoginPage() {
             <LoginContent />
         </Suspense>
     );
-} 
+}
