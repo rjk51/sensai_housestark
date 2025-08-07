@@ -4,25 +4,34 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Header } from "@/components/layout/header";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useCourses, useSchools, Course as ApiCourse } from "@/lib/api";
+import { useCourses, useSchools, usePublicCourses, Course as ApiCourse } from "@/lib/api";
 import CourseCard from "@/components/CourseCard";
 import CreateCourseDialog from "@/components/CreateCourseDialog";
+import Image from "next/image";
 
 export default function Home() {
   const router = useRouter();
   const { data: session } = useSession();
   const { courses, isLoading, error } = useCourses();
   const { schools } = useSchools();
+  const { courses: publicCourses, isLoading: isLoadingPublicCourses } = usePublicCourses();
   const [isCreateCourseDialogOpen, setIsCreateCourseDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Voice assistant states
+  const [isAssistantEnlarged, setIsAssistantEnlarged] = useState(false);
+  const [isDebounced, setIsDebounced] = useState(false);
+  const [transcription, setTranscription] = useState("");
+  const [speechError, setSpeechError] = useState("");
+  const [isTTSActive, setIsTTSActive] = useState(false);
+  const [logoAtButtons, setLogoAtButtons] = useState(false);
 
   // Memoize derived data to avoid recalculations
   const {
     teachingCourses,
     learningCourses,
-    otherCourses,
     hasTeachingCourses,
     hasLearningCourses,
-    hasOtherCourses,
     hasAnyCourses,
     showSegmentedTabs
   } = useMemo(() => {
@@ -31,76 +40,26 @@ export default function Home() {
     const hasTeachingCourses = teachingCourses.length > 0;
     const hasLearningCourses = learningCourses.length > 0;
 
-    // Hardcoded other courses for demonstration
-    const otherCourses = [
-      {
-        id: 'other-1',
-        title: 'Introduction to Data Science',
-        role: 'public',
-        org: { id: 1, name: 'Data Institute', slug: 'data-institute' },
-        description: 'Learn the fundamentals of data science and analytics',
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z'
-      },
-      {
-        id: 'other-2',
-        title: 'Web Development Bootcamp',
-        role: 'public',
-        org: { id: 2, name: 'Code Academy', slug: 'code-academy' },
-        description: 'Complete guide to modern web development',
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z'
-      },
-      {
-        id: 'other-3',
-        title: 'Machine Learning Fundamentals',
-        role: 'public',
-        org: { id: 3, name: 'AI School', slug: 'ai-school' },
-        description: 'Understanding the basics of machine learning',
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z'
-      },
-      {
-        id: 'other-4',
-        title: 'Digital Marketing Strategy',
-        role: 'public',
-        org: { id: 4, name: 'Marketing Hub', slug: 'marketing-hub' },
-        description: 'Learn effective digital marketing techniques',
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z'
-      },
-      {
-        id: 'other-5',
-        title: 'UI/UX Design Principles',
-        role: 'public',
-        org: { id: 5, name: 'Design Studio', slug: 'design-studio' },
-        description: 'Master the art of user interface and experience design',
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z'
-      },
-      {
-        id: 'other-6',
-        title: 'Project Management Essentials',
-        role: 'public',
-        org: { id: 6, name: 'Business School', slug: 'business-school' },
-        description: 'Essential skills for effective project management',
-        createdAt: '2024-01-01T00:00:00.000Z',
-        updatedAt: '2024-01-01T00:00:00.000Z'
-      }
-    ];
-    const hasOtherCourses = otherCourses.length > 0;
-
     return {
       teachingCourses,
       learningCourses,
-      otherCourses,
       hasTeachingCourses,
       hasLearningCourses,
-      hasOtherCourses,
       hasAnyCourses: hasTeachingCourses || hasLearningCourses,
       showSegmentedTabs: hasTeachingCourses && hasLearningCourses
     };
   }, [courses]);
+
+  // Filter public courses based on search query
+  const filteredPublicCourses = useMemo(() => {
+    if (!searchQuery.trim()) return publicCourses;
+    
+    return publicCourses.filter(course =>
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.org?.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [publicCourses, searchQuery]);
 
   // Memoize initialActiveTab calculation
   const initialActiveTab = useMemo(() =>
@@ -152,6 +111,119 @@ export default function Home() {
     }
   }, [hasSchool, schoolId, router]);
 
+  // Voice assistant handler
+  const handleAssistantClick = async () => {
+    if (isDebounced || isTTSActive) return;
+    setIsDebounced(true);
+    setIsAssistantEnlarged(true);
+    setLogoAtButtons(true);
+    setIsTTSActive(true);
+    
+    // TTS message for home page
+    const message = "Hey, I'm Senpai! I can help you navigate your courses, create new content, or discover other available courses. What would you like to do?";
+    if ('speechSynthesis' in window) {
+      const utter = new window.SpeechSynthesisUtterance(message);
+      utter.lang = 'en-US';
+      
+      utter.onend = () => {
+        setIsTTSActive(false);
+        // After speaking, start voice recognition
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+          // @ts-ignore
+          const SpeechRecognition = (window).SpeechRecognition || (window).webkitSpeechRecognition;
+          // @ts-ignore
+          const recognition = new SpeechRecognition();
+          recognition.lang = 'en-US';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+
+          let silenceTimeout: NodeJS.Timeout | null = null;
+
+          const resetUI = () => {
+            setIsAssistantEnlarged(false);
+            setLogoAtButtons(false);
+            setIsDebounced(false);
+          };
+
+          const stopRecognition = () => {
+            recognition.stop();
+            resetUI();
+          };
+
+          recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            console.log('Speech recognition result:', transcript);
+            setTranscription(transcript);
+            setSpeechError("");
+            
+            // Process voice commands
+            processVoiceCommand(transcript);
+            
+            // If user keeps speaking, reset the 5s timer
+            if (silenceTimeout) clearTimeout(silenceTimeout);
+            silenceTimeout = setTimeout(() => {
+              stopRecognition();
+            }, 5000);
+          };
+          
+          recognition.onerror = (event: any) => {
+            console.error('Speech recognition error:', event.error);
+            if (event.error === "network") {
+              setSpeechError("Speech recognition failed due to a network error. Please check your internet connection and try again.");
+            } else if (event.error === "not-allowed") {
+              setSpeechError("Microphone access denied. Please allow microphone access and try again.");
+            } else {
+              setSpeechError("Speech recognition error: " + event.error);
+            }
+            if (silenceTimeout) clearTimeout(silenceTimeout);
+            resetUI();
+          };
+          
+          recognition.onend = () => {
+            // If recognition ended not by our timer, reset UI
+            if (silenceTimeout) clearTimeout(silenceTimeout);
+            resetUI();
+          };
+          
+          recognition.start();
+        } else {
+          setSpeechError('Speech recognition not supported in this browser.');
+          setIsAssistantEnlarged(false);
+          setLogoAtButtons(false);
+          setIsDebounced(false);
+        }
+      };
+      
+      window.speechSynthesis.speak(utter);
+    } else {
+      setSpeechError('Text-to-speech not supported in this browser.');
+      setIsAssistantEnlarged(false);
+      setLogoAtButtons(false);
+      setIsDebounced(false);
+    }
+  };
+
+  // Process voice commands
+  const processVoiceCommand = (transcript: string) => {
+    const command = transcript.toLowerCase();
+    
+    if (command.includes('create') && command.includes('course')) {
+      handleCreateCourseButtonClick();
+    } else if (command.includes('teaching') || command.includes('created by me')) {
+      setActiveTab('teaching');
+    } else if (command.includes('learning') || command.includes('enrolled')) {
+      setActiveTab('learning');
+    } else if (command.includes('search') && command.includes('course')) {
+      // Focus on search input
+      const searchInput = document.querySelector('input[placeholder="Search courses..."]') as HTMLInputElement;
+      if (searchInput) {
+        searchInput.focus();
+      }
+    } else {
+      console.log('Command not recognized:', command);
+    }
+  };
+
   return (
     <>
       <style jsx global>{`
@@ -164,6 +236,19 @@ export default function Home() {
         html, body {
           height: 100%;
           overflow-y: auto;
+        }
+
+        @keyframes burst-ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+        .animation-delay-150 {
+          animation-delay: 150ms;
+        }
+        .animation-delay-300 {
+          animation-delay: 300ms;
         }
       `}
       </style>
@@ -178,14 +263,14 @@ export default function Home() {
         {/* Main content */}
         <main className="max-w-6xl mx-auto pt-6 px-8 pb-12">
           {/* Loading state */}
-          {isLoading && (
+          {(isLoading || isLoadingPublicCourses) && (
             <div className="flex justify-center items-center py-12">
               <div className="w-12 h-12 border-t-2 border-b-2 border-white rounded-full animate-spin"></div>
             </div>
           )}
 
           {/* Content when loaded */}
-          {!isLoading && (
+          {!isLoading && !isLoadingPublicCourses && (
             <div className="flex flex-col items-center">
               {/* Segmented control for tabs */}
               {showSegmentedTabs && (
@@ -262,25 +347,103 @@ export default function Home() {
               <div className="w-full max-w-6xl">
                 <div className="mb-6">
                   <h2 className="text-2xl font-medium mb-2 text-center">Other courses</h2>
-                  <p className="text-gray-400 text-center">Discover more courses from your school</p>
+                  <p className="text-gray-400 text-center mb-4">Discover more courses from your school</p>
+                  
+                  {/* Search Bar */}
+                  <div className="flex justify-center mb-6">
+                    <div className="relative w-full max-w-md">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Search courses..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-[#222222] border border-gray-700 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {otherCourses.map((course) => (
-                    <CourseCard
-                      key={course.id}
-                      course={{
-                        ...course,
-                        title: course.org?.slug ? `@${course.org.slug}/${course.title}` : course.title,
-                      }}
-                    />
-                  ))}
+                  {filteredPublicCourses.length > 0 ? (
+                    filteredPublicCourses.map((course) => (
+                      <CourseCard
+                        key={course.id}
+                        course={{
+                          ...course,
+                          title: course.org?.slug ? `@${course.org.slug}/${course.title}` : course.title,
+                        }}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center py-12">
+                      <p className="text-gray-400 text-lg">
+                        {searchQuery.trim() ? `No courses found for "${searchQuery}"` : "No courses available"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
         </main>
       </div>
+
+      {/* AI Assistant Logo - Bottom Right / Center when enlarged */}
+      <div className={`fixed z-50 flex flex-col items-end transition-all duration-500 ${
+        isAssistantEnlarged 
+          ? 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 items-center' 
+          : 'bottom-6 right-6'
+      }`}>
+        {/* Chat Bubble Label */}
+        {!isAssistantEnlarged && (
+          <div className="mb-3 relative animate-in fade-in duration-300">
+            <div className="bg-white text-gray-800 text-sm px-4 py-3 rounded-2xl shadow-lg whitespace-nowrap border border-gray-100">
+              Ask Senpai
+            </div>
+            {/* Chat bubble arrow pointing to the logo */}
+            <div className="absolute -bottom-2 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-white"></div>
+            <div className="absolute -bottom-1 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-100"></div>
+          </div>
+        )}
+        
+        {/* Burst Animation Effect */}
+        {isAssistantEnlarged && (
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Multiple burst circles */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-purple-400 rounded-full animate-ping opacity-75"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 border-2 border-blue-400 rounded-full animate-ping opacity-50 animation-delay-150"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-48 h-48 border-2 border-purple-300 rounded-full animate-ping opacity-25 animation-delay-300"></div>
+          </div>
+        )}
+        
+        {/* Assistant Button - Much Larger when clicked and centered */}
+        <button 
+          className={`bg-gradient-to-r from-purple-500 to-blue-500 rounded-full shadow-lg hover:shadow-xl transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black ${
+            isAssistantEnlarged ? 'w-32 h-32 hover:scale-105 shadow-2xl ring-4 ring-purple-400' : 'w-16 h-16 hover:scale-110'
+          }`}
+          onClick={handleAssistantClick}
+        >
+          <Image
+            src="/images/senpai-logo.gif"
+            alt="AI Assistant"
+            width={isAssistantEnlarged ? 128 : 64}
+            height={isAssistantEnlarged ? 128 : 64}
+            className="w-full h-full rounded-full object-cover"
+          />
+        </button>
+      </div>
+
+      {/* Show speech error if any */}
+      {speechError && (
+        <div className="fixed top-8 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-50 text-center">
+          {speechError}
+        </div>
+      )}
 
       {/* Create Course Dialog */}
       <CreateCourseDialog

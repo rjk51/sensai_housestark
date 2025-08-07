@@ -151,6 +151,91 @@ export function useSchools() {
 } 
 
 /**
+ * Hook to fetch public/other courses from various schools
+ */
+export function usePublicCourses() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id || authLoading) {
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    // First, get all organizations that the user has access to or can see
+    fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/users/${user.id}/orgs`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(async (orgs: any[]) => {
+        // Fetch courses from all organizations
+        const coursePromises = orgs.map(async (org: any) => {
+          try {
+            const coursesResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/courses/?org_id=${org.id}`);
+            if (!coursesResponse.ok) {
+              console.warn(`Failed to fetch courses for org ${org.id}:`, coursesResponse.status);
+              return [];
+            }
+            const coursesData = await coursesResponse.json();
+            
+            // Transform and add org information
+            return coursesData.map((course: any) => ({
+              id: course.id,
+              title: course.name,
+              description: course.description || `Course from ${org.name}`,
+              role: 'public',
+              org: {
+                id: org.id,
+                name: org.name,
+                slug: org.slug || org.name.toLowerCase().replace(/\s+/g, '-')
+              },
+              createdAt: course.created_at,
+              updatedAt: course.updated_at
+            }));
+          } catch (err) {
+            console.warn(`Error fetching courses for org ${org.id}:`, err);
+            return [];
+          }
+        });
+        
+        // Wait for all course fetches to complete
+        const courseArrays = await Promise.all(coursePromises);
+        
+        // Flatten the array of arrays into a single array
+        const allCourses = courseArrays.flat();
+        
+        // Filter out courses that the user is already enrolled in or created
+        // You might want to enhance this logic based on your needs
+        const publicCourses = allCourses.filter((course: Course) => 
+          course.role === 'public' // Only include public courses
+        );
+        
+        setCourses(publicCourses);
+      })
+      .catch(err => {
+        console.error('Error fetching public courses:', err);
+        setError(err);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [user?.id, isAuthenticated, authLoading]);
+  
+  return {
+    courses,
+    isLoading,
+    error
+  };
+}
+
+/**
  * Fetches and processes completion data for a user in a cohort
  * @param cohortId - The ID of the cohort
  * @param userId - The ID of the user
