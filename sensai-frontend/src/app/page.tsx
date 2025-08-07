@@ -215,14 +215,90 @@ export default function Home() {
       setActiveTab('teaching');
     } else if (command.includes('learning') || command.includes('enrolled')) {
       setActiveTab('learning');
-    } else if (command.includes('search') && command.includes('course')) {
-      // Focus on search input
+    } else if (
+      command.includes('search') || 
+      command.includes('find') || 
+      command.includes('look for') || 
+      command.includes('give me') || 
+      command.includes('show me') || 
+      command.includes('want') || 
+      command.includes('need') ||
+      (command.includes('course') && (command.includes('get') || command.includes('some')))
+    ) {
+      // Extract search query from voice command
+      let searchQuery = transcript;
+      
+      // Remove common voice command prefixes
+      const prefixesToRemove = [
+        'siri give me some',
+        'siri give me',
+        'give me some',
+        'give me',
+        'show me some',
+        'show me',
+        'search for',
+        'search',
+        'find some',
+        'find',
+        'look for',
+        'i want to learn',
+        'i want some',
+        'i want',
+        'i need some',
+        'i need',
+        'help me with',
+        'course about',
+        'courses about',
+        'get me some',
+        'get me'
+      ];
+      
+      for (const prefix of prefixesToRemove) {
+        if (command.includes(prefix)) {
+          const index = command.indexOf(prefix);
+          searchQuery = transcript.substring(index + prefix.length).trim();
+          break;
+        }
+      }
+      
+      // Remove common words that don't help with search
+      searchQuery = searchQuery.replace(/^(the|a|an|some|any)\s+/i, '');
+      
+      // Handle cases where "courses" is mentioned
+      if (searchQuery.includes('courses')) {
+        searchQuery = searchQuery.replace(/\s*courses?\s*$/, '');
+      }
+      
+      console.log('Extracted search query:', searchQuery);
+      
+      if (searchQuery.length > 1) {
+        // Set the search query and trigger classification
+        setSearchQuery(searchQuery);
+        
+        // Auto-classify and redirect after a short delay to show the search term
+        setTimeout(() => {
+          classifyAndRedirect(searchQuery);
+        }, 1000);
+      } else {
+        // Command seems incomplete, provide guidance
+        console.log('Incomplete command detected. Try saying something like: "give me machine learning courses" or "find React tutorials"');
+        
+        if ('speechSynthesis' in window) {
+          const utter = new window.SpeechSynthesisUtterance("I didn't catch that completely. Try saying something like 'give me machine learning courses' or 'find React tutorials'");
+          utter.lang = 'en-US';
+          window.speechSynthesis.speak(utter);
+        }
+      }
+      
+    } else if (command.includes('course')) {
+      // Focus on search input for general course mentions
       const searchInput = document.querySelector('input[placeholder="Search courses..."]') as HTMLInputElement;
       if (searchInput) {
         searchInput.focus();
       }
     } else {
       console.log('Command not recognized:', command);
+      console.log('Try commands like: "give me [topic] courses", "search for [topic]", "create course", "teaching", "learning"');
     }
   };
 
