@@ -56,6 +56,12 @@ export default function CourseCard({ course, onDelete }: CourseCardProps) {
 
     // Determine the correct link path
     const getLinkPath = () => {
+        // For now, all courses will navigate to their roadmap page
+        // We'll use the course ID to determine the roadmap route
+        return `/courses/${course.id}/roadmap`;
+        
+        // Original logic commented out for reference:
+        /*
         // If this is being viewed by a learner, use the school slug path
         if (course.role && course.role !== 'admin' && course.org?.slug) {
             // Include course_id and cohort_id as query parameters to help with selection on the school page
@@ -71,6 +77,7 @@ export default function CourseCard({ course, onDelete }: CourseCardProps) {
         }
         // Otherwise use the general course path
         return `/courses/${course.id}`;
+        */
     };
 
     // Check if this is an admin view

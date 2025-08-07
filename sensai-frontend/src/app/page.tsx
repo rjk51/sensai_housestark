@@ -126,6 +126,33 @@ export default function Home() {
       const utter = new window.SpeechSynthesisUtterance(message);
       utter.lang = 'en-US';
       
+      // Set female voice preferences
+      const voices = window.speechSynthesis.getVoices();
+      const femaleVoice = voices.find(voice => 
+        voice.lang.startsWith('en') && 
+        (voice.name.toLowerCase().includes('female') || 
+         voice.name.toLowerCase().includes('woman') ||
+         voice.name.toLowerCase().includes('samantha') ||
+         voice.name.toLowerCase().includes('susan') ||
+         voice.name.toLowerCase().includes('karen') ||
+         voice.name.toLowerCase().includes('victoria') ||
+         voice.name.toLowerCase().includes('zira'))
+      );
+      
+      if (femaleVoice) {
+        utter.voice = femaleVoice;
+      } else {
+        // Fallback: try to find any voice with higher pitch (usually female)
+        const highPitchVoice = voices.find(voice => voice.lang.startsWith('en'));
+        if (highPitchVoice) {
+          utter.voice = highPitchVoice;
+        }
+      }
+      
+      // Additional settings for more natural female voice
+      utter.pitch = 1.2; // Slightly higher pitch
+      utter.rate = 0.9;  // Slightly slower rate for clarity
+      
       utter.onend = () => {
         setIsTTSActive(false);
         // After speaking, start voice recognition
@@ -157,9 +184,6 @@ export default function Home() {
             setTranscription(transcript);
             setSpeechError("");
             
-            // Process voice commands
-            processVoiceCommand(transcript);
-            
             // If user keeps speaking, reset the 5s timer
             if (silenceTimeout) clearTimeout(silenceTimeout);
             silenceTimeout = setTimeout(() => {
@@ -183,6 +207,10 @@ export default function Home() {
           recognition.onend = () => {
             // If recognition ended not by our timer, reset UI
             if (silenceTimeout) clearTimeout(silenceTimeout);
+            
+            // When user stops speaking, redirect to ML explore page
+            router.push('/explore/ML');
+            
             resetUI();
           };
           
@@ -204,26 +232,7 @@ export default function Home() {
     }
   };
 
-  // Process voice commands
-  const processVoiceCommand = (transcript: string) => {
-    const command = transcript.toLowerCase();
-    
-    if (command.includes('create') && command.includes('course')) {
-      handleCreateCourseButtonClick();
-    } else if (command.includes('teaching') || command.includes('created by me')) {
-      setActiveTab('teaching');
-    } else if (command.includes('learning') || command.includes('enrolled')) {
-      setActiveTab('learning');
-    } else if (command.includes('search') && command.includes('course')) {
-      // Focus on search input
-      const searchInput = document.querySelector('input[placeholder="Search courses..."]') as HTMLInputElement;
-      if (searchInput) {
-        searchInput.focus();
-      }
-    } else {
-      console.log('Command not recognized:', command);
-    }
-  };
+
 
   return (
     <>
