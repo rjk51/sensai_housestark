@@ -104,6 +104,9 @@ describe('Home Page', () => {
             expect(screen.getByText('What if your next big idea became a course?')).toBeInTheDocument();
             expect(screen.getByText('It might be easier than you think')).toBeInTheDocument();
             expect(screen.getByRole('button', { name: 'Create course' })).toBeInTheDocument();
+
+            // Should not show Other courses section when there are no courses
+            expect(screen.queryByText('Other courses')).not.toBeInTheDocument();
         });
 
         it('should navigate to school creation when create course is clicked and no school exists', () => {
@@ -200,19 +203,23 @@ describe('Home Page', () => {
                 });
             });
 
-            it('should display teaching courses without tabs', () => {
-                render(<Home />);
+        it('should display teaching courses without tabs', () => {
+            render(<Home />);
 
-                expect(screen.getByText('Your courses')).toBeInTheDocument();
-                expect(screen.getByTestId('course-card-course-1')).toBeInTheDocument();
-                expect(screen.getByTestId('course-card-course-2')).toBeInTheDocument();
+            expect(screen.getByText('Your courses')).toBeInTheDocument();
+            expect(screen.getByTestId('course-card-course-1')).toBeInTheDocument();
+            expect(screen.getByTestId('course-card-course-2')).toBeInTheDocument();
 
-                // Should not show tabs
-                expect(screen.queryByText('Created by you')).not.toBeInTheDocument();
-                expect(screen.queryByText('Enrolled courses')).not.toBeInTheDocument();
-            });
+            // Should not show tabs
+            expect(screen.queryByText('Created by you')).not.toBeInTheDocument();
+            expect(screen.queryByText('Enrolled courses')).not.toBeInTheDocument();
 
-            it('should format course titles with org slug', () => {
+            // Should show Other courses section with hardcoded courses
+            expect(screen.getByText('Other courses')).toBeInTheDocument();
+            expect(screen.getByText('Discover more courses from your school')).toBeInTheDocument();
+            expect(screen.getByText('@data-institute/Introduction to Data Science')).toBeInTheDocument();
+            expect(screen.getByText('@code-academy/Web Development Bootcamp')).toBeInTheDocument();
+        });            it('should format course titles with org slug', () => {
                 render(<Home />);
 
                 expect(screen.getByText('@test-org/Teaching Course 1')).toBeInTheDocument();
@@ -239,6 +246,12 @@ describe('Home Page', () => {
                 // Should not show tabs
                 expect(screen.queryByText('Created by you')).not.toBeInTheDocument();
                 expect(screen.queryByText('Enrolled courses')).not.toBeInTheDocument();
+
+                // Should show Other courses section with hardcoded courses
+                expect(screen.getByText('Other courses')).toBeInTheDocument();
+                expect(screen.getByText('Discover more courses from your school')).toBeInTheDocument();
+                expect(screen.getByText('@data-institute/Introduction to Data Science')).toBeInTheDocument();
+                expect(screen.getByText('@code-academy/Web Development Bootcamp')).toBeInTheDocument();
             });
         });
 
@@ -259,6 +272,12 @@ describe('Home Page', () => {
 
                 // Should not show "Your courses" heading
                 expect(screen.queryByText('Your courses')).not.toBeInTheDocument();
+
+                // Should show Other courses section with hardcoded courses
+                expect(screen.getByText('Other courses')).toBeInTheDocument();
+                expect(screen.getByText('Discover more courses from your school')).toBeInTheDocument();
+                expect(screen.getByText('@data-institute/Introduction to Data Science')).toBeInTheDocument();
+                expect(screen.getByText('@code-academy/Web Development Bootcamp')).toBeInTheDocument();
             });
 
             it('should default to teaching tab', () => {
@@ -289,6 +308,56 @@ describe('Home Page', () => {
                 expect(screen.getByTestId('course-card-course-4')).toBeInTheDocument();
                 expect(screen.queryByTestId('course-card-course-1')).not.toBeInTheDocument();
             });
+        });
+    });
+
+    describe('Other Courses Section', () => {
+        beforeEach(() => {
+            (useSession as jest.Mock).mockReturnValue({
+                data: {
+                    user: { id: 'test-user' },
+                    expires: '2024-12-31T23:59:59.999Z'
+                },
+                status: 'authenticated',
+                update: mockUpdate
+            });
+            (useSchools as jest.Mock).mockReturnValue({
+                schools: [{ id: 'school-1', name: 'Test School' }],
+                isLoading: false,
+                error: null
+            });
+        });
+
+        it('should show Other courses section when user has courses', () => {
+            (useCourses as jest.Mock).mockReturnValue({
+                courses: [{
+                    id: 'course-1',
+                    title: 'Course 1',
+                    role: 'admin',
+                    org: undefined,
+                    description: 'Test course description',
+                    createdAt: '2024-01-01T00:00:00.000Z',
+                    updatedAt: '2024-01-01T00:00:00.000Z'
+                }],
+                isLoading: false,
+                error: null
+            });
+
+            render(<Home />);
+
+            expect(screen.getByText('Other courses')).toBeInTheDocument();
+            expect(screen.getByText('Discover more courses from your school')).toBeInTheDocument();
+            expect(screen.getByText('@data-institute/Introduction to Data Science')).toBeInTheDocument();
+            expect(screen.getByText('@code-academy/Web Development Bootcamp')).toBeInTheDocument();
+            expect(screen.getByText('@ai-school/Machine Learning Fundamentals')).toBeInTheDocument();
+        });
+
+        it('should not show Other courses section when user has no courses', () => {
+            (useCourses as jest.Mock).mockReturnValue({ courses: [], isLoading: false, error: null });
+
+            render(<Home />);
+
+            expect(screen.queryByText('Other courses')).not.toBeInTheDocument();
         });
     });
 
