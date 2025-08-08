@@ -1,0 +1,935 @@
+{
+  "voice_agent_intent_map": {
+    "global_intents": {
+      "navigation": {
+        "intents": [
+          "go to home",
+          "take me home",
+          "go to dashboard",
+          "navigate to main page",
+          "show me homepage"
+        ],
+        "actions": [
+          {
+            "type": "navigate",
+            "target": "/",
+            "description": "Navigate to home page"
+          }
+        ]
+      },
+      "authentication": {
+        "intents": [
+          "log me in",
+          "sign in",
+          "login with google",
+          "authenticate",
+          "login with voxa",
+          "sign me in"
+        ],
+        "actions": [
+          {
+            "type": "navigate",
+            "target": "/login",
+            "description": "Navigate to login page"
+          }
+        ]
+      },
+      "logout": {
+        "intents": [
+          "log me out",
+          "sign me out",
+          "logout",
+          "sign out"
+        ],
+        "actions": [
+          {
+            "type": "action",
+            "target": "signOut",
+            "description": "Sign out user and redirect to login"
+          }
+        ]
+      },
+      "help": {
+        "intents": [
+          "help me",
+          "what can I do",
+          "show help",
+          "assistance",
+          "guide me"
+        ],
+        "actions": [
+          {
+            "type": "voice_response",
+            "message": "I can help you navigate SensAI. You can create courses, manage schools, view your courses, join cohorts, or browse other available courses. What would you like to do?"
+          }
+        ]
+      }
+    },
+    "page_specific_intents": {
+      "/login": {
+        "page_name": "Login Page",
+        "description": "Authentication page with Google and Voxa login options",
+        "intents": {
+          "google_login": {
+            "intents": [
+              "sign in with google",
+              "google login",
+              "use google auth",
+              "authenticate with google"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "google_login_button",
+                "description": "Click Google login button"
+              }
+            ]
+          },
+          "voxa_login": {
+            "intents": [
+              "sign in with voxa",
+              "voxa login",
+              "use voxa auth",
+              "voxa vocal auth"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "voxa_login_button",
+                "description": "Click Voxa login button"
+              }
+            ]
+          },
+          "assistant_interaction": {
+            "intents": [
+              "talk to senpai",
+              "speak with assistant",
+              "activate voice",
+              "start conversation"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "assistant_button",
+                "description": "Activate voice assistant"
+              }
+            ]
+          }
+        }
+      },
+      "/": {
+        "page_name": "Home Dashboard",
+        "description": "Main dashboard showing user's courses and other available courses",
+        "intents": {
+          "create_course": {
+            "intents": [
+              "create a course",
+              "make new course",
+              "add course",
+              "start creating course",
+              "new course"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "create_course_button",
+                "description": "Open create course dialog"
+              }
+            ]
+          },
+          "view_teaching_courses": {
+            "intents": [
+              "show my courses",
+              "view created courses",
+              "teaching courses",
+              "courses I created",
+              "my teaching content"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "teaching_tab",
+                "description": "Switch to teaching courses tab"
+              }
+            ]
+          },
+          "view_learning_courses": {
+            "intents": [
+              "show enrolled courses",
+              "learning courses",
+              "courses I'm taking",
+              "my learning",
+              "enrolled content"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "learning_tab",
+                "description": "Switch to learning courses tab"
+              }
+            ]
+          },
+          "browse_other_courses": {
+            "intents": [
+              "show other courses",
+              "browse courses",
+              "discover courses",
+              "find new courses",
+              "explore courses"
+            ],
+            "actions": [
+              {
+                "type": "scroll",
+                "target": "other_courses_section",
+                "description": "Scroll to other courses section"
+              }
+            ]
+          },
+          "try_demo": {
+            "intents": [
+              "try demo",
+              "demo course",
+              "test the platform",
+              "show me example"
+            ],
+            "actions": [
+              {
+                "type": "navigate",
+                "target": "https://sensai.hyperverge.org/school/first-principles/join?cohortId=89",
+                "description": "Open demo course in new tab"
+              }
+            ]
+          }
+        }
+      },
+      "/school/admin/create": {
+        "page_name": "Create School",
+        "description": "Page for creating a new school/organization",
+        "intents": {
+          "create_school": {
+            "intents": [
+              "create school",
+              "make new school",
+              "setup organization",
+              "start school",
+              "new institution"
+            ],
+            "actions": [
+              {
+                "type": "form_focus",
+                "target": "school_name_input",
+                "description": "Focus on school name input field"
+              }
+            ]
+          },
+          "fill_school_details": {
+            "intents": [
+              "enter school name",
+              "fill details",
+              "add school information",
+              "complete form"
+            ],
+            "actions": [
+              {
+                "type": "form_interaction",
+                "description": "Guide through school creation form"
+              }
+            ]
+          }
+        }
+      },
+      "/school/admin/[id]": {
+        "page_name": "School Admin Dashboard",
+        "description": "Administrative dashboard for managing school, courses, and cohorts",
+        "intents": {
+          "manage_courses": {
+            "intents": [
+              "manage courses",
+              "view courses",
+              "course management",
+              "show courses tab"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "courses_tab",
+                "description": "Switch to courses tab"
+              }
+            ]
+          },
+          "manage_cohorts": {
+            "intents": [
+              "manage cohorts",
+              "view cohorts",
+              "cohort management",
+              "show cohorts tab"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "cohorts_tab",
+                "description": "Switch to cohorts tab"
+              }
+            ]
+          },
+          "manage_team": {
+            "intents": [
+              "manage team",
+              "view team members",
+              "team management",
+              "show team tab"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "team_tab",
+                "description": "Switch to team tab"
+              }
+            ]
+          },
+          "invite_members": {
+            "intents": [
+              "invite team member",
+              "add team member",
+              "invite someone",
+              "send invitation"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "invite_button",
+                "description": "Open team invitation dialog"
+              }
+            ]
+          },
+          "create_cohort": {
+            "intents": [
+              "create cohort",
+              "new cohort",
+              "add cohort",
+              "make cohort"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "create_cohort_button",
+                "description": "Open create cohort dialog"
+              }
+            ]
+          }
+        }
+      },
+      "/school/admin/[id]/courses/[courseId]": {
+        "page_name": "Course Editor",
+        "description": "Course creation and editing interface with modules and content",
+        "intents": {
+          "add_module": {
+            "intents": [
+              "add module",
+              "create module",
+              "new module",
+              "add section"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "add_module_button",
+                "description": "Add new course module"
+              }
+            ]
+          },
+          "add_learning_material": {
+            "intents": [
+              "add learning material",
+              "create content",
+              "add lesson",
+              "new material"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "add_learning_material_button",
+                "description": "Add learning material to module"
+              }
+            ]
+          },
+          "add_quiz": {
+            "intents": [
+              "add quiz",
+              "create quiz",
+              "new quiz",
+              "add assessment"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "add_quiz_button",
+                "description": "Add quiz to module"
+              }
+            ]
+          },
+          "preview_course": {
+            "intents": [
+              "preview course",
+              "test course",
+              "view as student",
+              "preview mode"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "preview_button",
+                "description": "Switch to preview mode"
+              }
+            ]
+          },
+          "publish_course": {
+            "intents": [
+              "publish course",
+              "make course live",
+              "activate course",
+              "go live"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "publish_button",
+                "description": "Publish the course"
+              }
+            ]
+          },
+          "assign_to_cohort": {
+            "intents": [
+              "assign to cohort",
+              "add cohort",
+              "assign students",
+              "link cohort"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "assign_cohort_button",
+                "description": "Assign course to a cohort"
+              }
+            ]
+          }
+        }
+      },
+      "/school/admin/[id]/courses/[courseId]/preview": {
+        "page_name": "Course Preview",
+        "description": "Preview mode showing how the course appears to students",
+        "intents": {
+          "back_to_editor": {
+            "intents": [
+              "back to editor",
+              "edit course",
+              "return to editing",
+              "go back to edit"
+            ],
+            "actions": [
+              {
+                "type": "navigate",
+                "target": "../",
+                "description": "Return to course editor"
+              }
+            ]
+          },
+          "start_learning": {
+            "intents": [
+              "start learning",
+              "begin course",
+              "start first lesson",
+              "take course"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "start_button",
+                "description": "Start the course as a learner"
+              }
+            ]
+          }
+        }
+      },
+      "/school/[id]": {
+        "page_name": "School Learner View",
+        "description": "Student view of school with enrolled courses and learning interface",
+        "intents": {
+          "select_course": {
+            "intents": [
+              "select course",
+              "choose course",
+              "switch course",
+              "open course"
+            ],
+            "actions": [
+              {
+                "type": "course_selection",
+                "description": "Select and switch between available courses"
+              }
+            ]
+          },
+          "start_lesson": {
+            "intents": [
+              "start lesson",
+              "begin learning",
+              "open task",
+              "start module"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "lesson_item",
+                "description": "Open learning material or quiz"
+              }
+            ]
+          },
+          "view_leaderboard": {
+            "intents": [
+              "show leaderboard",
+              "view rankings",
+              "see standings",
+              "check scores"
+            ],
+            "actions": [
+              {
+                "type": "navigate",
+                "target": "leaderboard",
+                "description": "Navigate to leaderboard page"
+              }
+            ]
+          },
+          "next_task": {
+            "intents": [
+              "next task",
+              "continue learning",
+              "next lesson",
+              "move forward"
+            ],
+            "actions": [
+              {
+                "type": "navigation_action",
+                "target": "next_task",
+                "description": "Navigate to next learning task"
+              }
+            ]
+          },
+          "previous_task": {
+            "intents": [
+              "previous task",
+              "go back",
+              "previous lesson",
+              "back to previous"
+            ],
+            "actions": [
+              {
+                "type": "navigation_action",
+                "target": "previous_task",
+                "description": "Navigate to previous learning task"
+              }
+            ]
+          }
+        }
+      },
+      "/school/[id]/join": {
+        "page_name": "Join Cohort",
+        "description": "Page for joining a cohort via invitation link",
+        "intents": {
+          "join_cohort": {
+            "intents": [
+              "join cohort",
+              "accept invitation",
+              "enroll",
+              "join class"
+            ],
+            "actions": [
+              {
+                "type": "auto_action",
+                "description": "Automatically process cohort joining"
+              }
+            ]
+          },
+          "go_to_course": {
+            "intents": [
+              "go to course",
+              "start learning",
+              "access course",
+              "begin course"
+            ],
+            "actions": [
+              {
+                "type": "navigate",
+                "target": "/school/[id]",
+                "description": "Navigate to school learning interface"
+              }
+            ]
+          }
+        }
+      },
+      "/school/[id]/cohort/[cohortId]/leaderboard": {
+        "page_name": "Leaderboard",
+        "description": "Shows rankings and scores for cohort members",
+        "intents": {
+          "view_rankings": {
+            "intents": [
+              "show my rank",
+              "check position",
+              "view standings",
+              "see scores"
+            ],
+            "actions": [
+              {
+                "type": "scroll_to",
+                "target": "user_position",
+                "description": "Scroll to user's position in leaderboard"
+              }
+            ]
+          },
+          "back_to_course": {
+            "intents": [
+              "back to course",
+              "return to learning",
+              "go back to course",
+              "continue learning"
+            ],
+            "actions": [
+              {
+                "type": "navigate",
+                "target": "/school/[id]",
+                "description": "Return to course learning interface"
+              }
+            ]
+          }
+        }
+      },
+      "/courses/[id]/roadmap/[milestoneId]": {
+        "page_name": "Milestone Tasks Page",
+        "description": "Individual milestone page showing learning tasks with progress tracking",
+        "intents": {
+          "view_milestone_progress": {
+            "intents": [
+              "show my progress",
+              "check progress",
+              "how many tasks completed",
+              "what's my progress"
+            ],
+            "actions": [
+              {
+                "type": "voice_response",
+                "message": "You have completed {completed_count} out of {total_tasks} tasks in this milestone. {progress_percentage}% complete."
+              }
+            ]
+          },
+          "complete_task": {
+            "intents": [
+              "mark task as complete",
+              "complete this task",
+              "finish task",
+              "mark as done"
+            ],
+            "actions": [
+              {
+                "type": "task_action",
+                "target": "mark_complete",
+                "description": "Mark the current or specified task as completed"
+              }
+            ]
+          },
+          "start_task": {
+            "intents": [
+              "start task",
+              "begin task",
+              "open task",
+              "start learning"
+            ],
+            "actions": [
+              {
+                "type": "task_action",
+                "target": "start_task",
+                "description": "Start or open the specified task"
+              }
+            ]
+          },
+          "view_task_details": {
+            "intents": [
+              "tell me about this task",
+              "what is this task about",
+              "task details",
+              "describe this task"
+            ],
+            "actions": [
+              {
+                "type": "voice_response",
+                "message": "This task is {task_title}. It's a {task_type} task that takes approximately {estimated_time}. {task_description}"
+              }
+            ]
+          },
+          "open_code_editor": {
+            "intents": [
+              "open code editor",
+              "start coding",
+              "write code",
+              "coding task"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "code_editor_button",
+                "description": "Open code editor for coding tasks"
+              }
+            ]
+          },
+          "take_quiz": {
+            "intents": [
+              "take quiz",
+              "start quiz",
+              "begin assessment",
+              "take test"
+            ],
+            "actions": [
+              {
+                "type": "click",
+                "target": "quiz_button",
+                "description": "Start quiz or assessment"
+              }
+            ]
+          },
+          "next_milestone": {
+            "intents": [
+              "go to next milestone",
+              "continue to next step",
+              "next milestone",
+              "move forward"
+            ],
+            "actions": [
+              {
+                "type": "navigate",
+                "target": "/courses/[id]/roadmap/[next_milestone_id]",
+                "description": "Navigate to the next milestone if current one is completed"
+              }
+            ]
+          },
+          "back_to_roadmap": {
+            "intents": [
+              "back to roadmap",
+              "return to roadmap",
+              "go back to course map",
+              "show roadmap"
+            ],
+            "actions": [
+              {
+                "type": "navigate",
+                "target": "/courses/[id]/roadmap",
+                "description": "Return to course roadmap overview"
+              }
+            ]
+          },
+          "view_all_tasks": {
+            "intents": [
+              "show all tasks",
+              "list all tasks",
+              "what tasks are there",
+              "task overview"
+            ],
+            "actions": [
+              {
+                "type": "voice_response",
+                "message": "This milestone has {total_tasks} tasks: {task_list}. You can ask me about any specific task or start working on them."
+              }
+            ]
+          },
+          "check_task_type": {
+            "intents": [
+              "what type of task is this",
+              "is this a coding task",
+              "is this a quiz",
+              "task type"
+            ],
+            "actions": [
+              {
+                "type": "voice_response",
+                "message": "This is a {task_type} task. {type_specific_guidance}"
+              }
+            ]
+          },
+          "estimate_time": {
+            "intents": [
+              "how long will this take",
+              "time estimate",
+              "how much time",
+              "duration of task"
+            ],
+            "actions": [
+              {
+                "type": "voice_response",
+                "message": "This task is estimated to take {estimated_time}. {additional_time_guidance}"
+              }
+            ]
+          },
+          "show_reading_tasks": {
+            "intents": [
+              "show reading tasks",
+              "what reading materials",
+              "reading assignments",
+              "theory tasks"
+            ],
+            "actions": [
+              {
+                "type": "task_filter",
+                "target": "reading",
+                "description": "Highlight or focus on reading-type tasks"
+              }
+            ]
+          },
+          "show_coding_tasks": {
+            "intents": [
+              "show coding tasks",
+              "programming assignments",
+              "coding exercises",
+              "development tasks"
+            ],
+            "actions": [
+              {
+                "type": "task_filter",
+                "target": "coding",
+                "description": "Highlight or focus on coding-type tasks"
+              }
+            ]
+          },
+          "show_quiz_tasks": {
+            "intents": [
+              "show quizzes",
+              "assessment tasks",
+              "tests",
+              "quiz assignments"
+            ],
+            "actions": [
+              {
+                "type": "task_filter",
+                "target": "quiz",
+                "description": "Highlight or focus on quiz-type tasks"
+              }
+            ]
+          },
+          "show_project_tasks": {
+            "intents": [
+              "show projects",
+              "project assignments",
+              "hands-on projects",
+              "practical tasks"
+            ],
+            "actions": [
+              {
+                "type": "task_filter",
+                "target": "project",
+                "description": "Highlight or focus on project-type tasks"
+              }
+            ]
+          },
+          "milestone_completion": {
+            "intents": [
+              "am I done with this milestone",
+              "is milestone complete",
+              "finished all tasks",
+              "milestone completion"
+            ],
+            "actions": [
+              {
+                "type": "voice_response",
+                "message": "You have completed {completed_count} out of {total_tasks} tasks. {completion_status_message}"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "contextual_intents": {
+      "course_interaction": {
+        "learning_mode": {
+          "intents": [
+            "submit answer",
+            "check answer",
+            "get hint",
+            "ask question",
+            "I need help",
+            "explain this",
+            "give me a clue"
+          ],
+          "actions": [
+            {
+              "type": "learning_interaction",
+              "description": "Handle learning-specific interactions"
+            }
+          ]
+        },
+        "editing_mode": {
+          "intents": [
+            "save changes",
+            "cancel edit",
+            "delete item",
+            "move up",
+            "move down",
+            "duplicate"
+          ],
+          "actions": [
+            {
+              "type": "editing_action",
+              "description": "Handle course editing actions"
+            }
+          ]
+        }
+      },
+      "form_interactions": {
+        "intents": [
+          "save form",
+          "submit",
+          "cancel",
+          "clear form",
+          "reset"
+        ],
+        "actions": [
+          {
+            "type": "form_action",
+            "description": "Handle form submission and management"
+          }
+        ]
+      },
+      "dialog_interactions": {
+        "intents": [
+          "close dialog",
+          "cancel",
+          "confirm",
+          "yes",
+          "no",
+          "proceed"
+        ],
+        "actions": [
+          {
+            "type": "dialog_action",
+            "description": "Handle dialog interactions"
+          }
+        ]
+      }
+    },
+    "error_handling": {
+      "unknown_intent": {
+        "response": "I'm not sure what you want to do. You can say things like 'create a course', 'show my courses', 'join a cohort', or 'help me' to get started."
+      },
+      "authentication_required": {
+        "response": "You need to be logged in to do that. Would you like me to take you to the login page?"
+      },
+      "permission_denied": {
+        "response": "You don't have permission to perform that action. Please check your access level or contact an administrator."
+      },
+      "page_not_found": {
+        "response": "I can't find that page. Let me take you back to the home page."
+      }
+    },
+    "voice_feedback": {
+      "navigation_success": "I've taken you to {page_name}.",
+      "action_success": "Done! I've {action_description}.",
+      "loading": "Please wait while I load that for you.",
+      "error": "Sorry, I couldn't do that. {error_message}"
+    }
+  }
+}

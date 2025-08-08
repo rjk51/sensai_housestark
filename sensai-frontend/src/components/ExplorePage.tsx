@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface Course {
   id: string;
@@ -44,6 +45,7 @@ export default function ExplorePage({
   description,
   courses 
 }: ExplorePageProps) {
+  const router = useRouter();
   const [isAssistantEnlarged, setIsAssistantEnlarged] = useState(false);
   const [isDebounced, setIsDebounced] = useState(false);
   const [transcription, setTranscription] = useState("");
@@ -52,10 +54,12 @@ export default function ExplorePage({
   const [logoAtButtons, setLogoAtButtons] = useState(false);
   const [highlightedCourse, setHighlightedCourse] = useState<string | null>(null);
   const [botPosition, setBotPosition] = useState<{top: string, left: string}>({top: 'auto', left: 'auto'});
+  const [lastTTSMessage, setLastTTSMessage] = useState<string>("");
+  const [wasManuallyStopped, setWasManuallyStopped] = useState(false);
 
   const handleCourseClick = (courseId: string) => {
-    // Handle course selection - you can implement navigation logic here
-    console.log(`Selected course: ${courseId}`);
+    // Navigate to the roadmap page (using a static ML course id for now)
+    router.push(`/courses/ml/roadmap`);
   };
 
   // Calculate safe position for bot to avoid overlapping with highlighted course
@@ -114,14 +118,36 @@ export default function ExplorePage({
     setLogoAtButtons(true);
     setIsTTSActive(true);
     setHighlightedCourse(null);
+    setWasManuallyStopped(false);
 
     // Generate course introduction message
     const message = generateCourseIntroduction();
+    setLastTTSMessage(message);
     
     if ('speechSynthesis' in window) {
       const utter = new window.SpeechSynthesisUtterance(message);
       utter.lang = 'en-US';
       utter.rate = 0.9; // Slightly slower for better understanding
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        const femaleVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && (
+            voice.name.toLowerCase().includes('female') ||
+            voice.name.toLowerCase().includes('woman') ||
+            voice.name.toLowerCase().includes('samantha') ||
+            voice.name.toLowerCase().includes('susan') ||
+            voice.name.toLowerCase().includes('karen') ||
+            voice.name.toLowerCase().includes('victoria') ||
+            voice.name.toLowerCase().includes('zira')
+          )
+        );
+        if (femaleVoice) {
+          utter.voice = femaleVoice;
+        } else {
+          const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+          if (englishVoice) utter.voice = englishVoice;
+        }
+      } catch {}
 
       // Track which course is being mentioned
       let currentCourseIndex = 0;
@@ -148,6 +174,13 @@ export default function ExplorePage({
         setHighlightedCourse(null);
         setBotPosition({top: 'auto', left: 'auto'}); // Reset to default position
         setIsTTSActive(false);
+        if (wasManuallyStopped) {
+          setWasManuallyStopped(false);
+          setIsAssistantEnlarged(false);
+          setLogoAtButtons(false);
+          setIsDebounced(false);
+          return;
+        }
         // After speaking, start voice recognition
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
           // @ts-ignore
@@ -221,6 +254,66 @@ export default function ExplorePage({
       setIsAssistantEnlarged(false);
       setLogoAtButtons(false);
       setIsDebounced(false);
+    }
+  };
+
+  // Stop current TTS and reset UI
+  const handleStopAssistant = () => {
+    try {
+      setWasManuallyStopped(true);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    } finally {
+      setIsTTSActive(false);
+      setIsAssistantEnlarged(false);
+      setLogoAtButtons(false);
+      setIsDebounced(false);
+      setHighlightedCourse(null);
+      setBotPosition({top: 'auto', left: 'auto'});
+    }
+  };
+
+  // Repeat previous TTS prompt without starting recognition
+  const handleRepeatAssistant = () => {
+    if (!lastTTSMessage) return;
+    if ('speechSynthesis' in window) {
+      setIsAssistantEnlarged(true);
+      setLogoAtButtons(true);
+      setIsDebounced(true);
+      setIsTTSActive(true);
+      setWasManuallyStopped(false);
+
+      const utter = new window.SpeechSynthesisUtterance(lastTTSMessage);
+      utter.lang = 'en-US';
+      utter.rate = 0.9;
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        const femaleVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && (
+            voice.name.toLowerCase().includes('female') ||
+            voice.name.toLowerCase().includes('woman') ||
+            voice.name.toLowerCase().includes('samantha') ||
+            voice.name.toLowerCase().includes('susan') ||
+            voice.name.toLowerCase().includes('karen') ||
+            voice.name.toLowerCase().includes('victoria') ||
+            voice.name.toLowerCase().includes('zira')
+          )
+        );
+        if (femaleVoice) {
+          utter.voice = femaleVoice;
+        } else {
+          const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+          if (englishVoice) utter.voice = englishVoice;
+        }
+      } catch {}
+      utter.onend = () => {
+        setIsTTSActive(false);
+        setIsAssistantEnlarged(false);
+        setLogoAtButtons(false);
+        setIsDebounced(false);
+      };
+      window.speechSynthesis.speak(utter);
     }
   };
 
@@ -372,6 +465,29 @@ export default function ExplorePage({
               : 'none'
           }}
         >
+          {/* Controls: Stop and Repeat */}
+          {isAssistantEnlarged && (
+            <div className="mb-3 flex gap-2">
+              <button
+                onClick={handleStopAssistant}
+                aria-label="Stop assistant"
+                className="p-2 rounded-full bg-white text-black hover:opacity-90 focus:outline-none"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M6 6h12v12H6z" />
+                </svg>
+              </button>
+              <button
+                onClick={handleRepeatAssistant}
+                aria-label="Repeat prompt"
+                className="p-2 rounded-full bg-white text-black hover:opacity-90 focus:outline-none"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 6V3L8 7l4 4V8c2.757 0 5 2.243 5 5a5 5 0 01-8.66 3.536l-1.415 1.415A7 7 0 0019 13c0-3.86-3.14-7-7-7z"/>
+                </svg>
+              </button>
+            </div>
+          )}
           {/* Chat Bubble Label */}
           {!isAssistantEnlarged && (
             <div className="mb-3 relative animate-in fade-in duration-300">
