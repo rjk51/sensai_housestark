@@ -33,9 +33,15 @@ export function bufferAnalytics(payload: Partial<AnalyticsPayload>): void {
 export type ConversationEvent =
   | { type: 'repeat'; timestamp: number }
   | { type: 'switch'; timestamp: number }
+  | { type: 'voice_command'; text: string; success: boolean; timestamp: number }
+  | { type: 'help_request'; text: string; timestamp: number }
+  | { type: 'task_complete'; taskId: number | string; title: string; taskType?: string; timestamp: number }
+  | { type: 'milestone_complete'; milestoneId: number | string; title: string; timestamp: number }
+  | { type: 'course_complete'; courseId?: string; title?: string; timestamp: number }
   | { type: 'message'; role: 'assistant' | 'user'; text: string; timestamp: number };
 
 const CONV_KEY = 'sensai_conversation_buffer_v1';
+const LAST_ANALYTICS_KEY = 'sensai_last_analytics_response_v1';
 
 export function bufferConversationEvent(event: ConversationEvent): void {
   try {
@@ -48,7 +54,7 @@ export function bufferConversationEvent(event: ConversationEvent): void {
   }
 }
 
-export async function flushConversationBuffer(): Promise<void> {
+export async function flushConversationBuffer(): Promise<any | void> {
   const raw = safeLocalStorage.getItem(CONV_KEY);
   if (!raw) return;
   let list: ConversationEvent[] = [];
@@ -62,7 +68,30 @@ export async function flushConversationBuffer(): Promise<void> {
     .sort((a, b) => a.timestamp - b.timestamp)
     .map(e => `${e.role === 'assistant' ? 'Assistant' : 'User'}: ${e.text}`);
 
-  const conversation = `repeat_count: ${repeatCount}\ninterest_switch: ${switchCount}\nConversation:\n${messages.join('\n')}`;
+  const eventLines = list
+    .filter(e => e.type !== 'message')
+    .map(e => {
+      switch (e.type) {
+        case 'repeat':
+          return `event: repeat | ts=${e.timestamp}`;
+        case 'switch':
+          return `event: interest_switch | ts=${e.timestamp}`;
+        case 'voice_command':
+          return `event: voice_command | success=${e.success} | text=${e.text} | ts=${e.timestamp}`;
+        case 'help_request':
+          return `event: help_request | text=${e.text} | ts=${e.timestamp}`;
+        case 'task_complete':
+          return `event: task_complete | id=${e.taskId} | title=${e.title} | type=${e.taskType ?? ''} | ts=${e.timestamp}`;
+        case 'milestone_complete':
+          return `event: milestone_achievement | id=${e.milestoneId} | title=${e.title} | ts=${e.timestamp}`;
+        case 'course_complete':
+          return `event: course_completion | id=${e.courseId ?? ''} | title=${e.title ?? ''} | ts=${e.timestamp}`;
+        default:
+          return `event: ${e.type} | ts=${(e as any).timestamp}`;
+      }
+    });
+
+  const conversation = `repeat_count: ${repeatCount}\ninterest_switch: ${switchCount}\nEvents:\n${eventLines.join('\n')}\nConversation:\n${messages.join('\n')}`;
 
   try {
     const response = await fetch('http://192.168.137.218:8000/analytics/conversation', {
@@ -70,12 +99,18 @@ export async function flushConversationBuffer(): Promise<void> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conversation })
     });
-    let data: unknown = null;
+    let data: any = null;
     try { data = await response.json(); } catch {}
-    console.log('Analytics (conversation) response:', { status: response.status, data });
+    const payload = { status: response.status, data };
+    console.log('Analytics (conversation) response:', payload);
     if (response.ok) {
       safeLocalStorage.setItem(CONV_KEY, JSON.stringify([]));
     }
+    // Cache last analytics regardless of status if data is present, so page can re-show later
+    if (data && data.analytics) {
+      try { safeLocalStorage.setItem(LAST_ANALYTICS_KEY, JSON.stringify(payload)); } catch {}
+    }
+    return payload;
   } catch (error) {
     console.error('Failed to send conversation analytics:', error);
   }
@@ -83,3 +118,11 @@ export async function flushConversationBuffer(): Promise<void> {
 
 // Legacy numeric analytics removed in favor of conversation endpoint
 
+export function getLastAnalytics(): any | null {
+  try {
+    const raw = safeLocalStorage.getItem(LAST_ANALYTICS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}

@@ -329,6 +329,7 @@ export default function Home() {
             const transcript = event.results[0][0].transcript;
             console.log('Speech recognition result:', transcript);
             setTranscription(transcript);
+            bufferConversationEvent({ type: 'voice_command', text: transcript, success: true, timestamp: Date.now() });
             bufferConversationEvent({ type: 'message', role: 'user', text: transcript, timestamp: Date.now() });
             setSpeechError("");
             
@@ -433,6 +434,84 @@ export default function Home() {
         setIsAssistantEnlarged(false);
         setLogoAtButtons(false);
         setIsDebounced(false);
+      };
+      window.speechSynthesis.speak(utter);
+    }
+  };
+
+  // Reset: stop speaking and start again from beginning
+  const handleResetAssistant = () => {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+      const message = lastTTSMessage || promptData.page3;
+      setWasManuallyStopped(false);
+      setIsAssistantEnlarged(true);
+      setLogoAtButtons(true);
+      setIsDebounced(true);
+      setIsTTSActive(true);
+
+      const utter = new window.SpeechSynthesisUtterance(message);
+      utter.lang = 'en-US';
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        const femaleVoice = voices.find(voice => 
+          voice.lang.startsWith('en') && (
+            voice.name.toLowerCase().includes('female') ||
+            voice.name.toLowerCase().includes('woman') ||
+            voice.name.toLowerCase().includes('samantha') ||
+            voice.name.toLowerCase().includes('susan') ||
+            voice.name.toLowerCase().includes('karen') ||
+            voice.name.toLowerCase().includes('victoria') ||
+            voice.name.toLowerCase().includes('zira')
+          )
+        );
+        if (femaleVoice) utter.voice = femaleVoice; else {
+          const englishVoice = voices.find(v => v.lang.startsWith('en'));
+          if (englishVoice) utter.voice = englishVoice;
+        }
+      } catch {}
+
+      utter.onend = () => {
+        setIsTTSActive(false);
+        // After speaking, start recognition (same as initial flow)
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+          // @ts-ignore
+          const SpeechRecognition = (window).SpeechRecognition || (window).webkitSpeechRecognition;
+          // @ts-ignore
+          const recognition = new SpeechRecognition();
+          recognition.lang = 'en-US';
+          recognition.interimResults = false;
+          recognition.maxAlternatives = 1;
+          let silenceTimeout: NodeJS.Timeout | null = null;
+          const resetUI = () => {
+            setIsAssistantEnlarged(false);
+            setLogoAtButtons(false);
+            setIsDebounced(false);
+          };
+          const stopRecognition = () => { recognition.stop(); resetUI(); };
+          recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            console.log('Speech recognition result:', transcript);
+            setTranscription(transcript);
+            bufferConversationEvent({ type: 'voice_command', text: transcript, success: true, timestamp: Date.now() });
+            bufferConversationEvent({ type: 'message', role: 'user', text: transcript, timestamp: Date.now() });
+            setSpeechError("");
+            processVoiceCommand(transcript);
+            if (silenceTimeout) clearTimeout(silenceTimeout);
+            silenceTimeout = setTimeout(() => { stopRecognition(); }, 5000);
+          };
+          recognition.onerror = (event: any) => {
+            console.error('Speech recognition error:', event.error);
+            if (silenceTimeout) clearTimeout(silenceTimeout);
+            resetUI();
+          };
+          recognition.onend = () => { if (silenceTimeout) clearTimeout(silenceTimeout); resetUI(); };
+          recognition.start();
+        } else {
+          setIsAssistantEnlarged(false); setLogoAtButtons(false); setIsDebounced(false);
+        }
       };
       window.speechSynthesis.speak(utter);
     }
@@ -654,6 +733,15 @@ export default function Home() {
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M6 6h12v12H6z" />
+              </svg>
+            </button>
+            <button
+              onClick={handleResetAssistant}
+              aria-label="Reset assistant"
+              className="p-2 rounded-full bg-white text-black hover:opacity-90 focus:outline-none"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 5v4l3-3-3-3v4a7 7 0 107 7h-2a5 5 0 11-5-5z"/>
               </svg>
             </button>
             <button

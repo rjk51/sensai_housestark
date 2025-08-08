@@ -364,9 +364,11 @@ export default function MilestonePage() {
                 if (data.action) {
                   switch (data.action.type) {
                     case 'complete_task':
-                      if (data.action.taskId) {
-                        handleTaskComplete(data.action.taskId);
-                      }
+                       if (data.action.taskId) {
+                         handleTaskComplete(data.action.taskId);
+                         // Record task completion
+                         bufferConversationEvent({ type: 'task_complete', taskId: data.action.taskId, title: String(data.action.taskId), timestamp: Date.now() });
+                       }
                       break;
                     case 'start_task':
                       // Could scroll to the task or highlight it
@@ -376,7 +378,7 @@ export default function MilestonePage() {
                       }
                       break;
                     case 'navigate':
-                      if (data.action.target === 'roadmap') {
+                       if (data.action.target === 'roadmap') {
                         setInterestSwitchCount((prev) => {
                           const next = prev + 1;
                           bufferConversationEvent({ type: 'switch', timestamp: Date.now() });

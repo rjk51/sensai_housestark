@@ -1,19 +1,94 @@
 "use client";
 
 import { Header } from "@/components/layout/header";
-import { flushConversationBuffer } from "@/lib/analytics";
-import { useEffect } from "react";
+import { flushConversationBuffer, getLastAnalytics } from "@/lib/analytics";
+import { useEffect, useState, useMemo } from "react";
 
 export default function AnalyticsPage() {
-  // Flush buffered analytics when viewing this page
+  const [serverAnalytics, setServerAnalytics] = useState<any | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Always attempt to flush on enter; if no new events, show cached analytics if available.
   useEffect(() => {
-    flushConversationBuffer();
+    let mounted = true;
+    (async () => {
+      try {
+        setIsLoading(true);
+        const resp = await flushConversationBuffer();
+        if (mounted && resp) {
+          setServerAnalytics(resp);
+        } else if (mounted) {
+          const cached = getLastAnalytics();
+          if (cached) setServerAnalytics(cached);
+        }
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
   }, []);
-  const dataPoints = [
-    { label: "Roadmap → Course", seconds: 3, repeat: 1 },
-    { label: "Course → Roadmap", seconds: 2, repeat: 0 },
-    { label: "Milestone → Course", seconds: 5, repeat: 2 },
-  ];
+
+  const interactionMetrics = serverAnalytics?.analytics?.interaction_metrics ?? null;
+  const interestSwitchCount = useMemo(() => {
+    const arr = interactionMetrics?.interest_switch;
+    return Array.isArray(arr) ? arr.length : 0;
+  }, [interactionMetrics]);
+  const repeatAudioCount = useMemo(() => {
+    const arr = interactionMetrics?.repeat_audio;
+    if (!Array.isArray(arr)) return 0;
+    return arr.reduce((sum: number, item: any) => sum + (Number(item?.count ?? 0) || 0), 0);
+  }, [interactionMetrics]);
+
+  // Derive dynamic success cards from server response
+  const derivedSuccessCards = useMemo(() => {
+    const sm = serverAnalytics?.data?.analytics?.success_metrics;
+    if (!sm) return [] as any[];
+    const map: Array<{ key: string; action: string; category: string }> = [
+      { key: 'course_completion', action: 'Course Completion', category: 'learning' },
+      { key: 'milestone_achievement', action: 'Milestone Achievement', category: 'learning' },
+      { key: 'voice_command_success', action: 'Voice Command Success', category: 'interaction' },
+      { key: 'problem_solving', action: 'Problem Solving', category: 'coding' },
+      { key: 'help_request_success', action: 'Help Request Success', category: 'interaction' },
+    ];
+    const now = new Date();
+    const ts = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    const aiText = serverAnalytics?.data?.analytics?.llm_resp?.success_metrics
+      || serverAnalytics?.data?.analytics?.llm_resp?.recommendations
+      || serverAnalytics?.data?.analytics?.llm_resp?.overall_assessment
+      || 'N/A';
+    return map
+      .map(cfg => {
+        const entry: any = sm[cfg.key] || {};
+        const percentage = Number(entry?.percentage ?? 0);
+        const details = String(entry?.details ?? '');
+        return {
+          id: cfg.key,
+          timestamp: ts,
+          action: cfg.action,
+          course: 'N/A',
+          details,
+          successScore: percentage,
+          aiResponse: aiText,
+          category: cfg.category,
+        };
+      })
+      .filter(card => card.successScore !== 0 || card.details);
+  }, [serverAnalytics]);
+  // Build dynamic data points from server response
+  const dataPoints = useMemo(() => {
+    const im = serverAnalytics?.data?.analytics?.interaction_metrics;
+    const interestArray = Array.isArray(im?.interest_switch) ? im.interest_switch : [];
+    const repeatArray = Array.isArray(im?.repeat_audio) ? im.repeat_audio : [];
+    // We do not have durations from server; map each interest switch to 1 unit, and repeats by count
+    const interestCount = interestArray.length;
+    const repeatCount = repeatArray.reduce((sum: number, r: any) => sum + (Number(r?.count ?? 0) || 0), 0);
+    if (interestCount === 0 && repeatCount === 0) {
+      return [] as Array<{ label: string; seconds: number; repeat: number }>;
+    }
+    return [
+      { label: "Interactions", seconds: interestCount, repeat: repeatCount },
+    ];
+  }, [serverAnalytics]);
 
   // Hardcoded success metrics data
   const successMetrics = [
@@ -89,12 +164,12 @@ export default function AnalyticsPage() {
   const padding = { top: 16, right: 16, bottom: 56, left: 36 };
   const innerWidth = chartWidth - padding.left - padding.right;
   const innerHeight = chartHeight - padding.top - padding.bottom;
-  const groupWidth = innerWidth / dataPoints.length;
+  const groupWidth = dataPoints.length ? innerWidth / dataPoints.length : innerWidth;
   const barGap = 8;
   const barWidth = (groupWidth - barGap) / 2;
-  const maxValue = Math.max(
+  const maxValue = dataPoints.length ? Math.max(
     ...dataPoints.map(d => Math.max(d.seconds, d.repeat))
-  );
+  ) : 1;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -102,8 +177,19 @@ export default function AnalyticsPage() {
 
       <main className="max-w-5xl mx-auto pt-10 px-6 pb-16">
         <h1 className="text-3xl font-light mb-6">Your analytics</h1>
+        {isLoading && (
+          <div className="mb-6 flex items-center gap-3 text-sm text-gray-300">
+            <div className="w-4 h-4 border-2 border-gray-600 border-t-white rounded-full animate-spin" />
+            <span>Submitting buffered conversation for analysis…</span>
+          </div>
+        )}
+        {!isLoading && !serverAnalytics && (
+          <div className="text-sm text-gray-400">No analytics available yet. Interact with Senpai and return here.</div>
+        )}
         
-        {/* Success Metrics Section */}
+        {!isLoading && serverAnalytics && (
+          <>
+          {/* Success Metrics Section (server-driven if available, otherwise hardcoded) */}
         <section className="mb-10">
           <div className="flex items-center gap-3 mb-6">
             <h2 className="text-2xl font-light">Success Metrics</h2>
@@ -115,9 +201,9 @@ export default function AnalyticsPage() {
             </div>
           </div>
           
-          {/* Success Metrics Cards */}
-          <div className="grid gap-4 mb-6">
-            {successMetrics.map((metric) => (
+           {/* Success Metrics Cards */}
+           <div className="grid gap-4 mb-6">
+              {(derivedSuccessCards.length > 0 ? derivedSuccessCards : successMetrics).map((metric: any) => (
               <div key={metric.id} className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
@@ -155,7 +241,7 @@ export default function AnalyticsPage() {
             ))}
           </div>
 
-          {/* Success Summary */}
+           {/* Success Summary */}
           <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20 rounded-lg p-4">
             <div className="flex items-center gap-3 mb-3">
               <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,50 +251,32 @@ export default function AnalyticsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl font-bold text-green-400">90%</div>
+                 <div className="text-2xl font-bold text-green-400">{serverAnalytics?.data?.analytics?.success_metrics?.overall_summary?.average_success_rate ?? 90}%</div>
                 <div className="text-sm text-gray-400">Average Success Rate</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-blue-400">5</div>
+                 <div className="text-2xl font-bold text-blue-400">{serverAnalytics?.data?.analytics?.success_metrics?.overall_summary?.achievements ?? 5}</div>
                 <div className="text-sm text-gray-400">Recent Achievements</div>
               </div>
               <div>
-                <div className="text-2xl font-bold text-purple-400">95%</div>
+                 <div className="text-2xl font-bold text-purple-400">{serverAnalytics?.data?.analytics?.success_metrics?.overall_summary?.senpai_interaction_score ?? 95}%</div>
                 <div className="text-sm text-gray-400">Senpai Interaction Score</div>
               </div>
             </div>
           </div>
         </section>
 
-        <div className="overflow-x-auto rounded-lg border border-gray-800">
-          <table className="min-w-full divide-y divide-gray-800">
-            <thead className="bg-[#0f0f0f]">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">interest_switch</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">repeat_audio</th>
-              </tr>
-            </thead>
-            <tbody className="bg-black divide-y divide-gray-900">
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">roadmap to course page 3 seconds</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">1</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">course page to roadmap 2 seconds</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">0</td>
-              </tr>
-              <tr>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">milestone to course page 5 seconds</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-200">2</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+         {/* Removed legacy table */}
 
         {/* Graph: Interest switch (seconds) vs Repeat audio (count) */}
         <section className="mt-10">
           <h2 className="text-2xl font-light mb-2">Visual summary</h2>
           <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4 overflow-x-auto">
+            {/* Live counts from server if available */}
+            <div className="mb-4 text-sm text-gray-300">
+              <span className="mr-4">Interest switches: <span className="text-blue-400 font-semibold">{interestSwitchCount}</span></span>
+              <span>Repeat audio: <span className="text-purple-400 font-semibold">{repeatAudioCount}</span></span>
+            </div>
             <div className="min-w-[760px]">
               <svg
                 width={chartWidth}
@@ -235,7 +303,7 @@ export default function AnalyticsPage() {
                     );
                   })}
                   {/* Bars */}
-                  {dataPoints.map((d, i) => {
+                   {dataPoints.map((d, i) => {
                     const xGroup = i * groupWidth;
                     const hSeconds = (d.seconds / maxValue) * innerHeight;
                     const hRepeat = (d.repeat / maxValue) * innerHeight;
@@ -273,7 +341,7 @@ export default function AnalyticsPage() {
                     );
                   })}
                   {/* Y axis label */}
-                  <text x={-padding.left + 4} y={-6} fill="#9ca3af" fontSize={11}>
+                   <text x={-padding.left + 4} y={-6} fill="#9ca3af" fontSize={11}>
                     value (normalized)
                   </text>
                 </g>
@@ -294,28 +362,37 @@ export default function AnalyticsPage() {
           <h2 className="text-2xl font-light mb-2">LLM_RESP</h2>
           <h3 className="text-sm text-gray-400 mb-4">assessing convo between the user and the agent senpai</h3>
           <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-6 text-gray-200 whitespace-pre-line">
-                    {/* LLM Assessment Section */}
+        {/* LLM Assessment Section */}
         <section className="mt-10">
           <h2 className="text-2xl font-light mb-2">LLM_RESP</h2>
           <h3 className="text-sm text-gray-400 mb-4">assessing convo between the user and the agent senpai</h3>
-          <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-6 text-gray-200 whitespace-pre-line">
-            {`Overall, the conversation shows healthy engagement. The user explored the roadmap, navigated to a course page, and then returned to the roadmap within a short window, indicating active discovery behavior. The assistant's guidance was concise and context-aware, and repeating audio was used sparingly for clarification rather than due to confusion.
-
-Success Metrics Analysis:
-The user demonstrates exceptional learning progress with a 90% average success rate across different categories. Voice interactions with Senpai are particularly strong (95% success rate), indicating effective AI-human collaboration. Recent achievements show consistent milestone completion and problem-solving capabilities.
-
-Key observations:
-- Interest switches are quick (2–5s), consistent with scanning multiple learning paths.
-- Repeat audio events (0–2) suggest the narration pace is acceptable for the user.
-- The user appears motivated to proceed to milestones, with no signs of frustration.
-- Strong success pattern in voice command usage and course completion rates.
-- Effective utilization of Senpai's assistance for learning and navigation.
-
-Recommendation: Continue with brief, step-wise instructions and surface next-step CTAs (e.g., "Open code editor", "Start quiz") when the user reaches milestones to maintain momentum. The high success metrics suggest the current interaction model is highly effective for this user.`}
+          <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-6 text-gray-200">
+            {serverAnalytics ? (
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-white mb-1">Overall Assessment</h4>
+                  <p className="text-sm text-gray-300">{serverAnalytics.data?.analytics?.llm_resp?.overall_assessment || 'N/A'}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-white mb-1">Key Observations</h4>
+                  <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
+                    {(serverAnalytics.data?.analytics?.llm_resp?.key_observations || []).map((o: string, idx: number) => (
+                      <li key={idx}>{o}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-white mb-1">Recommendations</h4>
+                  <p className="text-sm text-gray-300">{serverAnalytics.data?.analytics?.llm_resp?.recommendations || 'N/A'}</p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </section>
           </div>
         </section>
+        </>
+        )}
       </main>
     </div>
   );
