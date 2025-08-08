@@ -14,6 +14,7 @@ import CreateCourseDialog from '@/components/CreateCourseDialog';
 import Toast from "@/components/Toast";
 import ConfirmationDialog from "@/components/ConfirmationDialog";
 import { Cohort, TeamMember, Course } from "@/types";
+import Image from "next/image";
 
 interface School {
     id: number;
@@ -48,6 +49,18 @@ export default function ClientSchoolAdminView({ id }: { id: string }) {
         description: '',
         emoji: ''
     });
+
+    // Assistant state
+    const [isAssistantEnlarged, setIsAssistantEnlarged] = useState(false);
+    const [isDebounced, setIsDebounced] = useState(false);
+    const [isTTSActive, setIsTTSActive] = useState(false);
+    const [wasManuallyStopped, setWasManuallyStopped] = useState(false);
+    const [lastTTSMessage, setLastTTSMessage] = useState<string>("");
+    const [speechError, setSpeechError] = useState("");
+    const [transcription, setTranscription] = useState("");
+    const [highlightCreateCourse, setHighlightCreateCourse] = useState(false);
+    const [highlightCreateCohort, setHighlightCreateCohort] = useState(false);
+    const [highlightInviteMembers, setHighlightInviteMembers] = useState(false);
 
     // Add useEffect to automatically hide toast after 5 seconds
     useEffect(() => {
@@ -442,6 +455,196 @@ export default function ClientSchoolAdminView({ id }: { id: string }) {
         }
     };
 
+    // Assistant handlers
+    const processVoiceCommand = useCallback((transcript: string) => {
+        const command = transcript.toLowerCase();
+        if (command.includes('create') && command.includes('course')) {
+            setActiveTab('courses');
+            setIsCreateCourseDialogOpen(true);
+        } else if (command.includes('create') && command.includes('cohort')) {
+            setActiveTab('cohorts');
+            setIsCreateCohortDialogOpen(true);
+        } else if ((command.includes('invite') || command.includes('add')) && (command.includes('member') || command.includes('team'))) {
+            setActiveTab('members');
+            setIsInviteDialogOpen(true);
+        }
+    }, []);
+
+    const handleAssistantClick = useCallback(() => {
+        if (isDebounced || isTTSActive) return;
+        setIsDebounced(true);
+        setIsAssistantEnlarged(true);
+        setIsTTSActive(true);
+        setWasManuallyStopped(false);
+
+        // Guidance message for admin page
+        const message = "I can help you create a course, create a cohort, or invite team members. Say create course, create cohort, or invite member.";
+        setLastTTSMessage(message);
+
+        if ('speechSynthesis' in window) {
+            const utter = new window.SpeechSynthesisUtterance(message);
+            utter.lang = 'en-US';
+            try {
+                const voices = window.speechSynthesis.getVoices();
+                const femaleVoice = voices.find(v => v.lang.startsWith('en') && (
+                    v.name.toLowerCase().includes('female') ||
+                    v.name.toLowerCase().includes('woman') ||
+                    v.name.toLowerCase().includes('samantha') ||
+                    v.name.toLowerCase().includes('susan') ||
+                    v.name.toLowerCase().includes('karen') ||
+                    v.name.toLowerCase().includes('victoria') ||
+                    v.name.toLowerCase().includes('zira')
+                ));
+                if (femaleVoice) utter.voice = femaleVoice; else {
+                    const englishVoice = voices.find(v => v.lang.startsWith('en'));
+                    if (englishVoice) utter.voice = englishVoice;
+                }
+            } catch {}
+
+            // reset highlights
+            setHighlightCreateCourse(false);
+            setHighlightCreateCohort(false);
+            setHighlightInviteMembers(false);
+
+            utter.onboundary = (event: any) => {
+                if (!event.charIndex) return;
+                const spoken = message.substring(0, event.charIndex + 1).toLowerCase();
+                const createCourseIdx = Math.max(
+                    spoken.lastIndexOf('create course'),
+                    spoken.lastIndexOf('new course')
+                );
+                const createCohortIdx = Math.max(
+                    spoken.lastIndexOf('create cohort'),
+                    spoken.lastIndexOf('new cohort')
+                );
+                const inviteIdx = Math.max(
+                    spoken.lastIndexOf('invite'),
+                    spoken.lastIndexOf('invite member'),
+                    spoken.lastIndexOf('team member'),
+                    spoken.lastIndexOf('add member'),
+                    spoken.lastIndexOf('add team')
+                );
+
+                setHighlightCreateCourse(false);
+                setHighlightCreateCohort(false);
+                setHighlightInviteMembers(false);
+
+                const indices = [
+                    { idx: createCourseIdx, type: 'course' },
+                    { idx: createCohortIdx, type: 'cohort' },
+                    { idx: inviteIdx, type: 'invite' },
+                ].filter(i => i.idx >= 0);
+
+                if (indices.length > 0) {
+                    const mostRecent = indices.reduce((a, b) => (b.idx > a.idx ? b : a));
+                    switch (mostRecent.type) {
+                        case 'course':
+                            setActiveTab('courses');
+                            setHighlightCreateCourse(true);
+                            break;
+                        case 'cohort':
+                            setActiveTab('cohorts');
+                            setHighlightCreateCohort(true);
+                            break;
+                        case 'invite':
+                            setActiveTab('members');
+                            setHighlightInviteMembers(true);
+                            break;
+                    }
+                }
+            };
+
+            utter.onend = () => {
+                setIsTTSActive(false);
+                setHighlightCreateCourse(false);
+                setHighlightCreateCohort(false);
+                setHighlightInviteMembers(false);
+                if (wasManuallyStopped) {
+                    setWasManuallyStopped(false);
+                    setIsAssistantEnlarged(false);
+                    setIsDebounced(false);
+                    return;
+                }
+
+                if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                    // @ts-ignore
+                    const SpeechRecognition = (window).SpeechRecognition || (window).webkitSpeechRecognition;
+                    // @ts-ignore
+                    const recognition = new SpeechRecognition();
+                    recognition.lang = 'en-US';
+                    recognition.interimResults = false;
+                    recognition.maxAlternatives = 1;
+
+                    let silenceTimeout: NodeJS.Timeout | null = null;
+                    const resetUI = () => {
+                        setIsAssistantEnlarged(false);
+                        setIsDebounced(false);
+                    };
+                    const stopRecognition = () => { recognition.stop(); resetUI(); };
+
+                    recognition.onresult = (event: any) => {
+                        const transcript = event.results[0][0].transcript;
+                        setTranscription(transcript);
+                        setSpeechError("");
+                        processVoiceCommand(transcript);
+                        if (silenceTimeout) clearTimeout(silenceTimeout);
+                        silenceTimeout = setTimeout(() => { stopRecognition(); }, 5000);
+                    };
+                    recognition.onerror = () => {
+                        if (silenceTimeout) clearTimeout(silenceTimeout);
+                        resetUI();
+                    };
+                    recognition.onend = () => {
+                        if (silenceTimeout) clearTimeout(silenceTimeout);
+                        resetUI();
+                    };
+                    recognition.start();
+                } else {
+                    setSpeechError('Speech recognition not supported in this browser.');
+                    setIsAssistantEnlarged(false);
+                    setIsDebounced(false);
+                }
+            };
+
+            window.speechSynthesis.speak(utter);
+        } else {
+            setSpeechError('Text-to-speech not supported in this browser.');
+            setIsAssistantEnlarged(false);
+            setIsDebounced(false);
+        }
+    }, [isDebounced, isTTSActive, wasManuallyStopped, processVoiceCommand]);
+
+    const handleStopAssistant = useCallback(() => {
+        try {
+            setWasManuallyStopped(true);
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        } finally {
+            setIsTTSActive(false);
+            setIsAssistantEnlarged(false);
+            setIsDebounced(false);
+        }
+    }, []);
+
+    const handleRepeatAssistant = useCallback(() => {
+        if (!lastTTSMessage) return;
+        if ('speechSynthesis' in window) {
+            setIsAssistantEnlarged(true);
+            setIsDebounced(true);
+            setIsTTSActive(true);
+            setWasManuallyStopped(false);
+            const utter = new window.SpeechSynthesisUtterance(lastTTSMessage);
+            utter.lang = 'en-US';
+            utter.onend = () => {
+                setIsTTSActive(false);
+                setIsAssistantEnlarged(false);
+                setIsDebounced(false);
+            };
+            window.speechSynthesis.speak(utter);
+        }
+    }, [lastTTSMessage]);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-black text-white">
@@ -555,7 +758,7 @@ export default function ClientSchoolAdminView({ id }: { id: string }) {
                                             <div className="flex justify-start items-center mb-6">
                                                 <button
                                                     onClick={() => setIsCreateCourseDialogOpen(true)}
-                                                    className="px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity inline-block cursor-pointer"
+                                                    className={`px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity inline-block cursor-pointer ${highlightCreateCourse ? 'ring-4 ring-purple-400 shadow-2xl scale-105' : ''}`}
                                                 >
                                                     Create course
                                                 </button>
@@ -592,7 +795,7 @@ export default function ClientSchoolAdminView({ id }: { id: string }) {
                                         <>
                                             <div className="flex justify-start items-center mb-6">
                                                 <button
-                                                    className="px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none cursor-pointer"
+                                                    className={`px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none cursor-pointer ${highlightCreateCohort ? 'ring-4 ring-purple-400 shadow-2xl scale-105' : ''}`}
                                                     onClick={() => {
                                                         setIsCreateCohortDialogOpen(true);
                                                     }}
@@ -634,7 +837,7 @@ export default function ClientSchoolAdminView({ id }: { id: string }) {
                                 <div>
                                     <div className="flex justify-start items-center mb-6 gap-4">
                                         <button
-                                            className="px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none cursor-pointer"
+                                            className={`px-6 py-3 bg-white text-black text-sm font-medium rounded-full hover:opacity-90 transition-opacity focus:outline-none cursor-pointer ${highlightInviteMembers ? 'ring-4 ring-purple-400 shadow-2xl scale-105' : ''}`}
                                             onClick={() => setIsInviteDialogOpen(true)}
                                         >
                                             Invite members
@@ -712,6 +915,63 @@ export default function ClientSchoolAdminView({ id }: { id: string }) {
                     </main>
                 </div>
             </div>
+
+            {/* AI Assistant - Bottom Right */}
+            <div className={`fixed z-50 flex flex-col items-end transition-all duration-500 ${
+                isAssistantEnlarged ? 'top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 items-center' : 'bottom-6 right-6'
+            }`}>
+                {isAssistantEnlarged && (
+                    <div className="mb-3 flex gap-2">
+                        <button
+                            onClick={handleStopAssistant}
+                            aria-label="Stop assistant"
+                            className="p-2 rounded-full bg-white text-black hover:opacity-90 focus:outline-none"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 6h12v12H6z" />
+                            </svg>
+                        </button>
+                        <button
+                            onClick={handleRepeatAssistant}
+                            aria-label="Repeat prompt"
+                            className="p-2 rounded-full bg-white text-black hover:opacity-90 focus:outline-none"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 6V3L8 7l4 4V8c2.757 0 5 2.243 5 5a5 5 0 01-8.66 3.536l-1.415 1.415A7 7 0 0019 13c0-3.86-3.14-7-7-7z"/>
+                            </svg>
+                        </button>
+                    </div>
+                )}
+                {!isAssistantEnlarged && (
+                    <div className="mb-3 relative animate-in fade-in duration-300">
+                        <div className="bg-white text-gray-800 text-sm px-4 py-3 rounded-2xl shadow-lg whitespace-nowrap border border-gray-100">
+                            Ask Senpai
+                        </div>
+                        <div className="absolute -bottom-2 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-white"></div>
+                        <div className="absolute -bottom-1 right-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-100"></div>
+                    </div>
+                )}
+                <button
+                    className={`bg-gradient-to-r from-purple-500 to-blue-500 rounded-full shadow-lg hover:shadow-xl transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-black ${
+                        isAssistantEnlarged ? 'w-32 h-32 hover:scale-105 shadow-2xl ring-4 ring-purple-400' : 'w-16 h-16 hover:scale-110'
+                    }`}
+                    onClick={handleAssistantClick}
+                >
+                    <Image
+                        src="/images/senpai-logo.gif"
+                        alt="AI Assistant"
+                        width={isAssistantEnlarged ? 128 : 64}
+                        height={isAssistantEnlarged ? 128 : 64}
+                        className="w-full h-full rounded-full object-cover"
+                    />
+                </button>
+            </div>
+
+            {speechError && (
+                <div className="fixed top-8 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-50 text-center">
+                    {speechError}
+                </div>
+            )}
 
             {/* Invite Members Dialog */}
             <InviteMembersDialog
