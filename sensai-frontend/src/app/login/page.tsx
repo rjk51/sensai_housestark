@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { bufferConversationEvent } from "@/lib/analytics";
 
 // Custom styles for staggered burst animation
 const burstStyles = `
@@ -37,6 +38,7 @@ function LoginContent() {
     const [logoPosition, setLogoPosition] = useState<'center' | 'google' | 'voxa'>('center');
     const [lastTTSMessage, setLastTTSMessage] = useState<string>("");
     const [wasManuallyStopped, setWasManuallyStopped] = useState(false);
+    const [repeatCount, setRepeatCount] = useState(0);
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -232,11 +234,13 @@ function LoginContent() {
     const handleRepeatAssistant = () => {
         if (!lastTTSMessage) return;
         if ('speechSynthesis' in window) {
+            setRepeatCount((prev) => prev + 1);
             setIsAssistantEnlarged(true);
             setLogoAtButtons(true);
             setIsDebounced(true);
             setIsTTSActive(true);
             setWasManuallyStopped(false);
+            bufferConversationEvent({ type: 'repeat', timestamp: Date.now() });
 
             const utter = new window.SpeechSynthesisUtterance(lastTTSMessage);
             utter.lang = 'en-US';

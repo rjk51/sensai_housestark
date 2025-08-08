@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import Image from "next/image";
+import { bufferConversationEvent } from "@/lib/analytics";
 
 interface Task {
   id: number;
@@ -36,6 +37,8 @@ export default function MilestonePage() {
   const [completedTasks, setCompletedTasks] = useState<number[]>([]);
   const [lastTTSMessage, setLastTTSMessage] = useState<string>("");
   const [wasManuallyStopped, setWasManuallyStopped] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(0);
+  const [interestSwitchCount, setInterestSwitchCount] = useState(0);
   const milestoneData: Record<number, MilestoneData> = {
     1: {
       id: 1,
@@ -352,6 +355,10 @@ export default function MilestonePage() {
               if (response.ok) {
                 const data = await response.json();
                 console.log('API response:', data);
+                // Buffer assistant message
+                if (data.response) {
+                  bufferConversationEvent({ type: 'message', role: 'assistant', text: data.response, timestamp: Date.now() });
+                }
                 
                 // Handle actions returned by the API
                 if (data.action) {
@@ -370,6 +377,11 @@ export default function MilestonePage() {
                       break;
                     case 'navigate':
                       if (data.action.target === 'roadmap') {
+                        setInterestSwitchCount((prev) => {
+                          const next = prev + 1;
+                          bufferConversationEvent({ type: 'switch', timestamp: Date.now() });
+                          return next;
+                        });
                         setTimeout(() => {
                           router.push(`/courses/${courseId}/roadmap`);
                         }, 2000); // Give time for TTS to finish
@@ -479,10 +491,12 @@ export default function MilestonePage() {
   const handleRepeatAssistant = () => {
     if (!lastTTSMessage) return;
     if ('speechSynthesis' in window) {
+      setRepeatCount((prev) => prev + 1);
       setIsAssistantEnlarged(true);
       setIsDebounced(true);
       setIsTTSActive(true);
       setWasManuallyStopped(false);
+      bufferConversationEvent({ type: 'repeat', timestamp: Date.now() });
 
       const utter = new window.SpeechSynthesisUtterance(lastTTSMessage);
       utter.lang = 'en-US';

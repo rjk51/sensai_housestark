@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { bufferConversationEvent } from "@/lib/analytics";
 
 interface Course {
   id: string;
@@ -56,9 +57,16 @@ export default function ExplorePage({
   const [botPosition, setBotPosition] = useState<{top: string, left: string}>({top: 'auto', left: 'auto'});
   const [lastTTSMessage, setLastTTSMessage] = useState<string>("");
   const [wasManuallyStopped, setWasManuallyStopped] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(0);
+  const [interestSwitchCount, setInterestSwitchCount] = useState(0);
 
   const handleCourseClick = (courseId: string) => {
     // Navigate to the roadmap page (using a static ML course id for now)
+    setInterestSwitchCount((prev) => {
+      const next = prev + 1;
+      bufferConversationEvent({ type: 'switch', timestamp: Date.now() });
+      return next;
+    });
     router.push(`/courses/ml/roadmap`);
   };
 
@@ -278,11 +286,13 @@ export default function ExplorePage({
   const handleRepeatAssistant = () => {
     if (!lastTTSMessage) return;
     if ('speechSynthesis' in window) {
+      setRepeatCount((prev) => prev + 1);
       setIsAssistantEnlarged(true);
       setLogoAtButtons(true);
       setIsDebounced(true);
       setIsTTSActive(true);
       setWasManuallyStopped(false);
+      bufferConversationEvent({ type: 'repeat', timestamp: Date.now() });
 
       const utter = new window.SpeechSynthesisUtterance(lastTTSMessage);
       utter.lang = 'en-US';

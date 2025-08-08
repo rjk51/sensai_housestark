@@ -1,8 +1,14 @@
 "use client";
 
 import { Header } from "@/components/layout/header";
+import { flushConversationBuffer } from "@/lib/analytics";
+import { useEffect } from "react";
 
 export default function AnalyticsPage() {
+  // Flush buffered analytics when viewing this page
+  useEffect(() => {
+    flushConversationBuffer();
+  }, []);
   const dataPoints = [
     { label: "Roadmap → Course", seconds: 3, repeat: 1 },
     { label: "Course → Roadmap", seconds: 2, repeat: 0 },

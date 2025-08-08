@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Header } from "@/components/layout/header";
 import Image from "next/image";
+import { bufferConversationEvent } from "@/lib/analytics";
 
 export default function CourseRoadmap() {
   const params = useParams();
@@ -18,6 +19,8 @@ export default function CourseRoadmap() {
   const [isTTSActive, setIsTTSActive] = useState(false);
   const [highlightedMilestone, setHighlightedMilestone] = useState<number | null>(null);
   const [botPosition, setBotPosition] = useState<{top: string, left: string}>({top: 'auto', left: 'auto'});
+  const [repeatCount, setRepeatCount] = useState(0);
+  const [interestSwitchCount] = useState(0);
   const [lastTTSMessage, setLastTTSMessage] = useState<string>("");
   const [wasManuallyStopped, setWasManuallyStopped] = useState(false);
 
@@ -303,10 +306,12 @@ export default function CourseRoadmap() {
   const handleRepeatAssistant = () => {
     if (!lastTTSMessage) return;
     if ('speechSynthesis' in window) {
+      setRepeatCount((prev) => prev + 1);
       setIsAssistantEnlarged(true);
       setIsDebounced(true);
       setIsTTSActive(true);
       setWasManuallyStopped(false);
+      bufferConversationEvent({ type: 'repeat', timestamp: Date.now() });
 
       const utter = new window.SpeechSynthesisUtterance(lastTTSMessage);
       utter.lang = 'en-US';

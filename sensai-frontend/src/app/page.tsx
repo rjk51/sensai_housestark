@@ -9,6 +9,7 @@ import CourseCard from "@/components/CourseCard";
 import CreateCourseDialog from "@/components/CreateCourseDialog";
 import Image from "next/image";
 import promptData from "./promtp.json";
+import { bufferConversationEvent } from "@/lib/analytics";
 
 export default function Home() {
   const router = useRouter();
@@ -28,6 +29,8 @@ export default function Home() {
   const [logoAtButtons, setLogoAtButtons] = useState(false);
   const [lastTTSMessage, setLastTTSMessage] = useState<string>("");
   const [wasManuallyStopped, setWasManuallyStopped] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(0);
+  const [interestSwitchCount, setInterestSwitchCount] = useState(0);
 
   // Highlighting states for voice-guided interactions
   const [highlightCreateCourse, setHighlightCreateCourse] = useState(false);
@@ -326,6 +329,7 @@ export default function Home() {
             const transcript = event.results[0][0].transcript;
             console.log('Speech recognition result:', transcript);
             setTranscription(transcript);
+            bufferConversationEvent({ type: 'message', role: 'user', text: transcript, timestamp: Date.now() });
             setSpeechError("");
             
             // Process voice commands
@@ -394,11 +398,13 @@ export default function Home() {
   const handleRepeatAssistant = () => {
     if (!lastTTSMessage) return;
     if ('speechSynthesis' in window) {
+      setRepeatCount((prev) => prev + 1);
       setIsAssistantEnlarged(true);
       setLogoAtButtons(true);
       setIsDebounced(true);
       setIsTTSActive(true);
       setWasManuallyStopped(false);
+      bufferConversationEvent({ type: 'repeat', timestamp: Date.now() });
 
       const utter = new window.SpeechSynthesisUtterance(lastTTSMessage);
       utter.lang = 'en-US';
@@ -450,6 +456,11 @@ export default function Home() {
       }
     } else if (command.includes('explore') || command.includes('ml') || command.includes('machine learning')) {
       // Redirect to ML explore page
+      setInterestSwitchCount((prev) => {
+        const next = prev + 1;
+        bufferConversationEvent({ type: 'switch', timestamp: Date.now() });
+        return next;
+      });
       router.push('/explore/ML');
     } else {
       console.log('Command not recognized:', command);
