@@ -158,6 +158,11 @@ export function Header({
         setMobileActionsOpen(false);
     };
 
+    // Handle analytics button click
+    const handleAnalyticsClick = () => {
+        router.push("/analytics");
+    };
+
     // Get user initials for avatar
     const getInitials = () => {
         if (session?.user?.name) {
@@ -236,6 +241,13 @@ export function Header({
                 <div className="flex items-center space-x-4 pr-1">
 
                     <>
+                        {/* Your analytics button */}
+                        <button
+                            onClick={handleAnalyticsClick}
+                            className="hidden md:block px-6 py-3 bg-white/20 text-white text-sm font-medium rounded-full hover:bg-white/30 cursor-pointer transition-all duration-300"
+                        >
+                            Your analytics
+                        </button>
                         {showTryDemoButton && (
                             <button
                                 onClick={handleTryDemoClick}
